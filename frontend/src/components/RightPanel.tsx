@@ -28,6 +28,56 @@ interface ParsedLine {
   text: string;
 }
 
+function parseLrc(lrcText: string): ParsedLine[] {
+  if (!lrcText) return [];
+  const lines = lrcText.split(/\r?\n/);
+  const parsed: ParsedLine[] = [];
+  let globalOffsetMs = 0;
+
+  for (const line of lines) {
+    const offsetMatch = line.match(/^\[offset:\s*([+-]?\d+)\]/i);
+    if (offsetMatch) {
+      globalOffsetMs = parseInt(offsetMatch[1], 10) || 0;
+      break;
+    }
+  }
+
+  const timeRegex = /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
+
+  for (const line of lines) {
+    if (/^\[(ti|ar|al|au|length|by|offset|re|ve):/i.test(line)) continue;
+
+    const timestamps: number[] = [];
+    let match: RegExpExecArray | null;
+    timeRegex.lastIndex = 0;
+
+    while ((match = timeRegex.exec(line)) !== null) {
+      const min = parseInt(match[1], 10);
+      const sec = parseInt(match[2], 10);
+      let ms = 0;
+      if (match[3]) {
+        if (match[3].length === 1) ms = parseInt(match[3], 10) * 100;
+        else if (match[3].length === 2) ms = parseInt(match[3], 10) * 10;
+        else ms = parseInt(match[3].slice(0, 3), 10);
+      }
+      timestamps.push(min * 60000 + sec * 1000 + ms + globalOffsetMs);
+    }
+
+    if (timestamps.length === 0) continue;
+
+    const text = line.replace(/\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\]/g, '').trim();
+    for (const timeMs of timestamps) {
+      parsed.push({
+        timeMs: Math.max(0, timeMs),
+        text: text || '♪',
+      });
+    }
+  }
+
+  parsed.sort((a, b) => a.timeMs - b.timeMs);
+  return parsed;
+}
+
 export const RightPanel: React.FC = () => {
   const {
     rightPanelTab,
@@ -72,6 +122,9 @@ export const RightPanel: React.FC = () => {
   const [isInstrumental, setIsInstrumental] = useState<boolean>(false);
   const [lyricsLoading, setLyricsLoading] = useState<boolean>(false);
   const [activeLyricIndex, setActiveLyricIndex] = useState<number>(-1);
+  const activeLyricIndexRef = useRef<number>(-1);
+  const lyricLinesRef = useRef<ParsedLine[]>([]);
+  lyricLinesRef.current = lyricLines;
   const lyricsContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Load EQ Presets on mount
@@ -90,6 +143,7 @@ export const RightPanel: React.FC = () => {
       setLyricLines([]);
       setPlainLyrics('');
       setActiveLyricIndex(-1);
+      activeLyricIndexRef.current = -1;
       setAudioFeatures(null);
       return;
     }
@@ -102,6 +156,7 @@ export const RightPanel: React.FC = () => {
 
     setLyricsLoading(true);
     setActiveLyricIndex(-1);
+    activeLyricIndexRef.current = -1;
 
     const params = new URLSearchParams({
       track_name: currentTrack.title,
@@ -115,23 +170,10 @@ export const RightPanel: React.FC = () => {
         setIsInstrumental(!!data.instrumental);
         setPlainLyrics(data.plainLyrics || '');
 
-        if (data.syncedLyrics) {
-          const rawLines = data.syncedLyrics.split('\n');
-          const parsed: ParsedLine[] = [];
-          for (const line of rawLines) {
-            const match = line.match(/\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)/);
-            if (match) {
-              const min = parseInt(match[1], 10);
-              const sec = parseInt(match[2], 10);
-              const ms = match[3] ? parseInt(match[3].padEnd(3, '0'), 10) : 0;
-              const timeMs = min * 60000 + sec * 1000 + ms;
-              const text = match[4].trim();
-              if (text) {
-                parsed.push({ timeMs, text });
-              }
-            }
-          }
-          setLyricLines(parsed);
+        if (data.parsedLines && Array.isArray(data.parsedLines) && data.parsedLines.length > 0) {
+          setLyricLines(data.parsedLines);
+        } else if (data.syncedLyrics) {
+          setLyricLines(parseLrc(data.syncedLyrics));
         } else {
           setLyricLines([]);
         }
@@ -143,36 +185,60 @@ export const RightPanel: React.FC = () => {
       .finally(() => setLyricsLoading(false));
   }, [currentTrack?.id]);
 
-  // Sync lyrics highlight with playback time
+  // High-precision zero-latency hardware clock lyrics sync
   useEffect(() => {
-    if (rightPanelTab !== 'lyrics' || lyricLines.length === 0) return;
+    if (rightPanelTab !== 'lyrics') return;
 
-    const interval = setInterval(() => {
-      const state = usePlayerStore.getState();
-      const currentMs = state.currentTime * 1000;
+    let animId: number;
+    let lastCheck = 0;
 
-      let idx = -1;
-      for (let i = 0; i < lyricLines.length; i++) {
-        if (currentMs >= lyricLines[i].timeMs) {
-          idx = i;
-        } else {
-          break;
-        }
-      }
+    const syncLyrics = (now: number) => {
+      // Sample at ~25ms (~40fps) for millisecond-exact audio synchronization
+      if (now - lastCheck >= 25) {
+        lastCheck = now;
+        const lines = lyricLinesRef.current;
+        if (lines.length > 0) {
+          const controller = usePlayerStore.getState().controller;
+          // Direct sub-frame accurate hardware audio clock
+          const currentSec = controller ? controller.getCurrentTime() : usePlayerStore.getState().currentTime;
+          // Perceptual acoustic lead compensation (80ms) for natural alignment with vocal onset
+          const currentMs = currentSec * 1000 + 80;
 
-      if (idx !== activeLyricIndex) {
-        setActiveLyricIndex(idx);
-        if (idx !== -1 && lyricsContainerRef.current) {
-          const lineEl = lyricsContainerRef.current.querySelector(`[data-lyric-idx="${idx}"]`);
-          if (lineEl) {
-            lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // O(log N) binary search for active lyric
+          let low = 0;
+          let high = lines.length - 1;
+          let idx = -1;
+
+          while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (lines[mid].timeMs <= currentMs) {
+              idx = mid;
+              low = mid + 1;
+            } else {
+              high = mid - 1;
+            }
+          }
+
+          if (idx !== activeLyricIndexRef.current) {
+            activeLyricIndexRef.current = idx;
+            setActiveLyricIndex(idx);
+
+            if (idx !== -1 && lyricsContainerRef.current) {
+              const lineEl = lyricsContainerRef.current.querySelector(`[data-lyric-idx="${idx}"]`);
+              if (lineEl) {
+                lineEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }
           }
         }
       }
-    }, 150);
 
-    return () => clearInterval(interval);
-  }, [rightPanelTab, lyricLines, activeLyricIndex]);
+      animId = requestAnimationFrame(syncLyrics);
+    };
+
+    animId = requestAnimationFrame(syncLyrics);
+    return () => cancelAnimationFrame(animId);
+  }, [rightPanelTab]);
 
   if (!rightPanelTab) return null;
 
@@ -796,7 +862,11 @@ export const RightPanel: React.FC = () => {
                     <p
                       key={idx}
                       data-lyric-idx={idx}
-                      onClick={() => seek(line.timeMs / 1000)}
+                      onClick={() => {
+                        seek(line.timeMs / 1000);
+                        setActiveLyricIndex(idx);
+                        activeLyricIndexRef.current = idx;
+                      }}
                       className={`text-lg font-bold transition-all duration-200 cursor-pointer select-none leading-relaxed ${
                         isActive
                           ? 'text-[#fa243c] text-xl font-black scale-102 drop-shadow-sm'

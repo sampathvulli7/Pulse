@@ -108,7 +108,9 @@ export const FullScreenSingModal: React.FC = () => {
 
   if (!isFullScreenSingOpen || !currentTrack) return null;
 
-  const currentMs = currentTime * 1000;
+  const controller = usePlayerStore.getState().controller;
+  const currentSec = controller ? controller.getCurrentTime() : currentTime;
+  const currentMs = currentSec * 1000 + 80;
   let activeLyricIndex = -1;
   for (let i = lyrics.length - 1; i >= 0; i--) {
     if (currentMs >= lyrics[i].timeMs) {

@@ -53,7 +53,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({ isOpen, onClose }) => 
         setIsInstrumental(!!data.instrumental);
         setPlainLyrics(data.plainLyrics || '');
 
-        if (data.syncedLyrics) {
+        if (data.parsedLines && Array.isArray(data.parsedLines) && data.parsedLines.length > 0) {
+          setLines(data.parsedLines);
+        } else if (data.syncedLyrics) {
           // Parse LRC timestamp format: [mm:ss.xx] Lyric text
           const rawLines = data.syncedLyrics.split('\n');
           const parsed: ParsedLine[] = [];
