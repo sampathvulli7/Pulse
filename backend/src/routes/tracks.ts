@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db/database';
+import { resolveYouTubeAudioId } from '../services/spotify';
 
 export const trackRouter = Router();
 
@@ -76,6 +77,35 @@ trackRouter.get('/', (req: Request, res: Response) => {
   }));
 
   res.json({ tracks, total });
+});
+
+// GET /api/tracks/:id/resolve-yt
+trackRouter.get('/:id/resolve-yt', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const title = (req.query.title as string) || '';
+    const artist = (req.query.artist as string) || '';
+    const track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as any;
+
+    const trackTitle = track?.title || title;
+    const trackArtist = track?.artist || artist;
+
+    if (track?.youtube_video_id && track.youtube_video_id.trim()) {
+      return res.json({ youtubeVideoId: track.youtube_video_id });
+    }
+
+    const videoId = await resolveYouTubeAudioId(trackArtist, trackTitle);
+    if (videoId) {
+      try {
+        db.prepare('UPDATE tracks SET youtube_video_id = ? WHERE id = ?').run(videoId, id);
+      } catch (e) {}
+      return res.json({ youtubeVideoId: videoId });
+    }
+
+    res.json({ youtubeVideoId: 'i2bhnV4zQ-A' });
+  } catch (err: any) {
+    res.json({ youtubeVideoId: 'i2bhnV4zQ-A' });
+  }
 });
 
 // GET /api/tracks/:id
