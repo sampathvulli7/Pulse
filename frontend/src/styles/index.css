@@ -5,8 +5,15 @@
 
 :root {
   /* Apple Music + Spotify Hybrid Workstation — Luminous Light Theme */
-  --background-canvas: #f2f2f7;
-  --background-base: rgba(255, 255, 255, 0.85);
+  --ambient-grad-base: #f4f5f9;
+  --ambient-grad-1: rgba(224, 230, 252, 0.45); /* soft pale periwinkle */
+  --ambient-grad-2: rgba(252, 235, 240, 0.38); /* delicate rosewater whisper */
+  --ambient-grad-3: rgba(230, 242, 250, 0.42); /* soft mist sky */
+  --ambient-grad-4: rgba(244, 235, 252, 0.38); /* quiet twilight lilac */
+  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(244, 245, 249, 0.15) 0%, rgba(244, 245, 249, 0.65) 100%);
+
+  --background-canvas: #f4f5f9;
+  --background-base: rgba(255, 255, 255, 0.80);
   --background-highlight: #f8f8fa;
   --background-press: #e5e5ea;
   --background-elevated-base: #ffffff;
@@ -45,8 +52,15 @@
 /* Dark Mode Overrides (True Obsidian Black & Dark Glassmorphism) */
 .dark, [data-theme="dark"], html.dark, body.dark {
   color-scheme: dark;
-  --background-canvas: #000000;
-  --background-base: #121214;
+  --ambient-grad-base: #09090b;
+  --ambient-grad-1: rgba(36, 28, 58, 0.32); /* muted obsidian plum / twilight */
+  --ambient-grad-2: rgba(48, 22, 38, 0.24); /* very soft dusky ruby whisper */
+  --ambient-grad-3: rgba(18, 38, 54, 0.28); /* quiet midnight slate / ocean teal */
+  --ambient-grad-4: rgba(26, 22, 44, 0.28); /* deep calm indigo */
+  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(9, 9, 11, 0.25) 0%, rgba(9, 9, 11, 0.80) 100%);
+
+  --background-canvas: #09090b;
+  --background-base: rgba(18, 18, 22, 0.80);
   --background-highlight: #18181a;
   --background-press: #000000;
   --background-elevated-base: #18181a;
@@ -120,9 +134,10 @@ html.theme-transitioning *::after {
   padding: 10px 10px 0 10px;
   gap: var(--panel-gap);
   grid-template-rows: 1fr var(--now-playing-bar-height);
-  background-color: var(--background-canvas);
+  background-color: transparent;
   overflow: hidden;
   position: relative;
+  z-index: 1;
 }
 
 .spotify-xpui-container.has-right-panel {
@@ -149,11 +164,7 @@ html.theme-transitioning *::after {
     padding: 0 !important;
     gap: 0 !important;
     overflow: hidden !important;
-  }
-
-  /* Disable heavy mesh background on mobile to guarantee smooth 60fps */
-  .ambient-mesh {
-    display: none !important;
+    background-color: transparent !important;
   }
 
   .spotify-sidebar {
@@ -176,6 +187,7 @@ html.theme-transitioning *::after {
     overflow: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
+    background-color: transparent !important;
   }
 
   .spotify-now-playing-bar {
@@ -523,13 +535,139 @@ html.theme-transitioning *::after {
   border-color: transparent !important;
 }
 
-/* Apple Music Ambient Mesh Animation */
-@keyframes meshFloat {
-  0% { transform: scale(1) translate(0px, 0px); }
-  50% { transform: scale(1.1) translate(-20px, 15px); }
-  100% { transform: scale(1) translate(0px, 0px); }
+/* Clean, Smooth, Low-Contrast Ambient Moving Gradient Engine */
+.ambient-gradient-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background-color: var(--ambient-grad-base);
+  contain: strict;
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.ambient-mesh-blob {
-  animation: meshFloat 14s ease-in-out infinite alternate;
+.ambient-gradient-mesh {
+  position: absolute;
+  inset: -30%;
+  width: 160%;
+  height: 160%;
+  filter: blur(80px);
+  -webkit-filter: blur(80px);
+  opacity: 0.95;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  animation: smoothAmbientFlow 26s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+@media (max-width: 768px) {
+  .ambient-gradient-mesh {
+    /* 45px blur on mobile ensures featherweight GPU load and 60fps scrolling */
+    filter: blur(45px);
+    -webkit-filter: blur(45px);
+  }
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.ambient-orb-1 {
+  top: 8%;
+  left: 8%;
+  width: 60vw;
+  height: 60vw;
+  max-width: 800px;
+  max-height: 800px;
+  background: radial-gradient(circle, var(--ambient-grad-1) 0%, transparent 68%);
+  animation: orbFloat1 28s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-2 {
+  top: 6%;
+  right: 10%;
+  width: 65vw;
+  height: 65vw;
+  max-width: 850px;
+  max-height: 850px;
+  background: radial-gradient(circle, var(--ambient-grad-2) 0%, transparent 68%);
+  animation: orbFloat2 32s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-3 {
+  bottom: 10%;
+  left: 18%;
+  width: 68vw;
+  height: 68vw;
+  max-width: 900px;
+  max-height: 900px;
+  background: radial-gradient(circle, var(--ambient-grad-3) 0%, transparent 68%);
+  animation: orbFloat3 36s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-4 {
+  bottom: 8%;
+  right: 15%;
+  width: 55vw;
+  height: 55vw;
+  max-width: 750px;
+  max-height: 750px;
+  background: radial-gradient(circle, var(--ambient-grad-4) 0%, transparent 68%);
+  animation: orbFloat4 30s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+@keyframes smoothAmbientFlow {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-2.5%, 2%, 0) scale(1.03) rotate(2deg);
+  }
+  100% {
+    transform: translate3d(2.5%, -2%, 0) scale(0.98) rotate(-2deg);
+  }
+}
+
+@keyframes orbFloat1 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(4vw, 5vh, 0) scale(1.06); }
+  100% { transform: translate3d(-3vw, 2vh, 0) scale(0.96); }
+}
+
+@keyframes orbFloat2 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-5vw, 4vh, 0) scale(0.94); }
+  100% { transform: translate3d(3vw, -4vh, 0) scale(1.05); }
+}
+
+@keyframes orbFloat3 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(3vw, -5vh, 0) scale(1.04); }
+  100% { transform: translate3d(-4vw, 3vh, 0) scale(0.95); }
+}
+
+@keyframes orbFloat4 {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-4vw, -4vh, 0) scale(1.05); }
+  100% { transform: translate3d(5vw, 3vh, 0) scale(0.94); }
+}
+
+/* Subtle center vignette layer to keep central readability crisp */
+.ambient-gradient-vignette {
+  position: absolute;
+  inset: 0;
+  background: var(--ambient-grad-overlay);
+  pointer-events: none;
+  transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-gradient-mesh,
+  .ambient-orb {
+    animation: none !important;
+  }
 }

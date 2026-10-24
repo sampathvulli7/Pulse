@@ -342,13 +342,17 @@ export function App() {
     <div
       className={`relative w-screen h-[100dvh] flex flex-col overflow-hidden font-sans antialiased select-none ${theme} ${
         theme === 'dark' ? 'dark' : ''
-      } bg-[#f2f2f7] dark:bg-black text-[#1d1d1f] dark:text-white transition-colors duration-300`}
+      } text-[#1d1d1f] dark:text-white transition-colors duration-300`}
     >
-      {/* Luminous Apple Music Ambient Mesh Gradient */}
-      <div className="ambient-mesh pointer-events-none">
-        <div className="ambient-mesh-blob ambient-mesh-blob-1" />
-        <div className="ambient-mesh-blob ambient-mesh-blob-2" />
-        <div className="ambient-mesh-blob ambient-mesh-blob-3" />
+      {/* Clean, Smooth, Low-Contrast Ambient Moving Gradient across Whole App */}
+      <div className="ambient-gradient-canvas pointer-events-none" aria-hidden="true">
+        <div className="ambient-gradient-mesh">
+          <div className="ambient-orb ambient-orb-1" />
+          <div className="ambient-orb ambient-orb-2" />
+          <div className="ambient-orb ambient-orb-3" />
+          <div className="ambient-orb ambient-orb-4" />
+        </div>
+        <div className="ambient-gradient-vignette" />
       </div>
 
       {/* Toast Notification Banner */}
@@ -359,7 +363,7 @@ export function App() {
       )}
 
       {/* Mobile Top App Bar (< 768px) */}
-      <header className="md:hidden flex items-center justify-between px-4 py-2.5 bg-white/90 dark:bg-[#121214]/90 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-30 shrink-0 pt-safe">
+      <header className="md:hidden flex items-center justify-between px-4 py-2.5 bg-white/80 dark:bg-[#121214]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-30 shrink-0 pt-safe">
         <button
           onClick={() => setIsMobileSidebarOpen(true)}
           className="p-2 -ml-1 rounded-xl text-[#1d1d1f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition"
