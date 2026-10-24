@@ -1,7 +1,7 @@
 # Production Dockerfile for Sampath's Studio
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 
-# Install system dependencies (ffmpeg, python3, curl) for audio streaming
+# Install system dependencies (ffmpeg, python3, curl, ca-certificates) for audio streaming
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \

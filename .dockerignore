@@ -1,0 +1,8 @@
+node_modules
+*/node_modules
+backend/cache/audio/*
+backend/data/*.sqlite
+.git
+dist
+frontend/dist
+backend/dist
