@@ -304,48 +304,21 @@ export class PlaybackController {
       }
     };
 
-    audio.onerror = async (e) => {
+    audio.onerror = (e) => {
       console.warn('[PlaybackController] HTML5 Audio element error:', e);
-      if (this.activeEngine === 'youtube') {
-        this.callbacks.onError(e);
-        return;
-      }
-
-      let ytId = this.currentTrack?.youtubeVideoId;
-      if (!ytId && this.currentTrack) {
-        try {
-          const res = await fetch(
-            `/api/tracks/${this.currentTrack.id}/resolve-yt?title=${encodeURIComponent(
-              this.currentTrack.title
-            )}&artist=${encodeURIComponent(this.currentTrack.artist)}`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            ytId = data.youtubeVideoId;
-            this.currentTrack.youtubeVideoId = ytId;
-          }
-        } catch (fetchErr) {
-          console.warn('[PlaybackController] Dynamic YT resolve error:', fetchErr);
-        }
-      }
-
-      if (ytId) {
-        console.log('[PlaybackController] Seamlessly falling back to YouTube bridge for:', this.currentTrack?.title, ytId);
+      if (this.currentTrack?.youtubeVideoId && this.activeEngine !== 'youtube') {
+        console.log('[PlaybackController] Falling back to YouTube bridge for:', this.currentTrack.title);
         this.stopHTML5();
         this.activeEngine = 'youtube';
-        this.ytBridge
-          .init()
-          .then(() => {
-            this.ytBridge.showDock();
-            this.ytBridge.loadVideoById(ytId!, 0);
-            this.ytBridge.play();
-          })
-          .catch(() => {
-            this.callbacks.onError(e);
-          });
+        this.ytBridge.init().then(() => {
+          this.ytBridge.showDock();
+          this.ytBridge.loadVideoById(this.currentTrack!.youtubeVideoId!, 0);
+          this.ytBridge.play();
+        }).catch(() => {
+          this.callbacks.onError(e);
+        });
         return;
       }
-
       this.callbacks.onError(e);
     };
   }
