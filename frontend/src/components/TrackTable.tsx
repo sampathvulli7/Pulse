@@ -375,7 +375,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({
       </div>
 
       {/* Action Toolbar & Filters */}
-      <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3.5 sticky top-0 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md z-20 border-b border-black/5 dark:border-white/5">
+      <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3.5 bg-transparent z-20">
         {/* Play Button & Secondary Actions */}
         <div className="flex items-center gap-3">
           <button
@@ -673,7 +673,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({
       <div className="hidden md:block px-6 pb-12 flex-1">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-black/5 dark:border-white/10 text-[11px] font-semibold text-[#86868b] dark:text-[#b3b3b3] uppercase tracking-wider sticky top-16 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md z-10">
+            <tr className="border-b border-black/5 dark:border-white/10 text-[11px] font-semibold text-[#86868b] dark:text-[#b3b3b3] uppercase tracking-wider bg-transparent z-10">
               <th className="py-3 px-2 sm:px-3 w-8 sm:w-10 text-center">#</th>
               <th className="py-3 px-1 sm:px-2 w-7 sm:w-8 text-center"></th>
               <th className="py-3 px-2 sm:px-4">Title</th>
