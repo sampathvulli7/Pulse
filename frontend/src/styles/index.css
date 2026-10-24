@@ -5,15 +5,15 @@
 
 :root {
   /* Apple Music + Spotify Hybrid Workstation — Luminous Blue & Orange Ambient Theme */
-  --ambient-grad-base: #f4f6fa;
-  --ambient-grad-1: rgba(59, 130, 246, 0.22); /* soft cerulean / slate blue (less dominant) */
-  --ambient-grad-2: rgba(249, 115, 22, 0.34);  /* warm sunset tangerine orange */
-  --ambient-grad-3: rgba(14, 165, 233, 0.18);  /* gentle morning sky blue */
-  --ambient-grad-4: rgba(245, 158, 11, 0.30);  /* golden honey amber */
-  --ambient-grad-5: rgba(99, 102, 241, 0.16);  /* soft dusk twilight periwinkle */
-  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.04) 0%, rgba(244, 246, 250, 0.22) 100%);
+  --ambient-grad-base: #eaf1f8;
+  --ambient-grad-1: rgba(14, 116, 224, 0.44); /* electric sapphire blue */
+  --ambient-grad-2: rgba(249, 115, 22, 0.44);  /* warm sunset tangerine orange */
+  --ambient-grad-3: rgba(6, 182, 212, 0.40);  /* luminous ocean cyan */
+  --ambient-grad-4: rgba(245, 158, 11, 0.40);  /* golden amber / honey glow */
+  --ambient-grad-5: rgba(59, 130, 246, 0.38);  /* royal cobalt blue */
+  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.02) 0%, rgba(234, 241, 248, 0.20) 100%);
 
-  --background-canvas: #f4f6fa;
+  --background-canvas: #eaf1f8;
   --background-base: rgba(255, 255, 255, 0.38);
   --background-highlight: rgba(255, 255, 255, 0.50);
   --background-press: rgba(255, 255, 255, 0.60);
@@ -54,11 +54,11 @@
 .dark, [data-theme="dark"], html.dark, body.dark {
   color-scheme: dark;
   --ambient-grad-base: #060912;
-  --ambient-grad-1: rgba(30, 64, 175, 0.32);  /* deep oceanic cobalt (subtle) */
-  --ambient-grad-2: rgba(234, 88, 12, 0.40);  /* molten sunset orange glow */
-  --ambient-grad-3: rgba(14, 165, 233, 0.24);  /* gentle twilight cyan */
-  --ambient-grad-4: rgba(217, 119, 6, 0.34);  /* warm ember amber */
-  --ambient-grad-5: rgba(79, 70, 229, 0.24);  /* soft dusk indigo aurora */
+  --ambient-grad-1: rgba(30, 64, 175, 0.48);  /* deep oceanic royal cobalt */
+  --ambient-grad-2: rgba(234, 88, 12, 0.45);  /* molten sunset orange glow */
+  --ambient-grad-3: rgba(14, 165, 233, 0.42);  /* electric cyan beam */
+  --ambient-grad-4: rgba(217, 119, 6, 0.38);  /* warm ember amber */
+  --ambient-grad-5: rgba(37, 99, 235, 0.42);  /* sapphire aurora */
   --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(6, 9, 18, 0.08) 0%, rgba(6, 9, 18, 0.50) 100%);
 
   --background-canvas: #060912;
@@ -563,9 +563,9 @@ html.theme-transitioning *::after {
               radial-gradient(circle at 50% 80%, var(--ambient-grad-3) 0%, transparent 50%),
               radial-gradient(circle at 80% 75%, var(--ambient-grad-4) 0%, transparent 45%),
               radial-gradient(circle at 20% 75%, var(--ambient-grad-5) 0%, transparent 45%);
-  filter: blur(65px);
-  -webkit-filter: blur(65px);
-  opacity: 0.65;
+  filter: blur(50px);
+  -webkit-filter: blur(50px);
+  opacity: 0.85;
   animation: ambientUnderglow 18s ease-in-out infinite alternate;
 }
 
@@ -580,9 +580,9 @@ html.theme-transitioning *::after {
   inset: -25%;
   width: 150%;
   height: 150%;
-  filter: blur(65px);
-  -webkit-filter: blur(65px);
-  opacity: 0.85;
+  filter: blur(50px);
+  -webkit-filter: blur(50px);
+  opacity: 0.95;
   transform: translate3d(0, 0, 0);
   will-change: transform;
   animation: smoothAmbientFlow 24s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
