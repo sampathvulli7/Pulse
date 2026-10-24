@@ -1,0 +1,22 @@
+{
+  "name": "pulse-music-workstation",
+  "version": "1.0.0",
+  "description": "Pulse — Smart Personal Music Workstation & Spotify Manager",
+  "scripts": {
+    "start": "bash start.sh",
+    "backend": "cd backend && node dist/server.js",
+    "frontend": "cd frontend && npm run dev -- --host 0.0.0.0",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build",
+    "test": "cd backend && npm test && cd ../frontend && npm test -- --run"
+  },
+  "keywords": [
+    "music",
+    "audio-workstation",
+    "spotify",
+    "eq",
+    "lyrics",
+    "web-audio-api"
+  ],
+  "author": "",
+  "license": "ISC"
+}
