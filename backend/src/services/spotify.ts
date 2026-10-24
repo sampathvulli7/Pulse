@@ -293,7 +293,65 @@ export async function searchSpotifyTracks(query: string, accessToken?: string, s
   }));
 }
 
-export async function importSpotifyPlaylist(urlOrId: string, accessToken?: string) {
+let cachedAppToken: string | null = null;
+let cachedAppTokenExpiresAt: number = 0;
+
+/**
+ * Obtain an official Spotify Client Credentials app access token.
+ * Enables full multi-page pagination (100 - 5,000+ tracks) for all public Spotify playlists.
+ */
+export async function getSpotifyAppToken(
+  customClientId?: string,
+  customClientSecret?: string
+): Promise<string | null> {
+  const clientId = (customClientId || process.env.SPOTIFY_CLIENT_ID || '').trim();
+  const clientSecret = (customClientSecret || process.env.SPOTIFY_CLIENT_SECRET || '').trim();
+
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  // Use memory cached token if still valid (60s buffer)
+  if (cachedAppToken && Date.now() < cachedAppTokenExpiresAt - 60000) {
+    return cachedAppToken;
+  }
+
+  try {
+    const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    });
+
+    if (!res.ok) {
+      console.warn(`[Spotify API] Client credentials auth failed (${res.status}):`, await res.text().catch(() => ''));
+      return null;
+    }
+
+    const data = (await res.json()) as any;
+    if (data.access_token) {
+      cachedAppToken = data.access_token;
+      cachedAppTokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+      console.log(`[Spotify API] Acquired fresh client_credentials app token (valid ${data.expires_in}s)`);
+      return data.access_token;
+    }
+  } catch (err) {
+    console.warn('[Spotify API] Error obtaining client credentials token:', err);
+  }
+
+  return null;
+}
+
+export async function importSpotifyPlaylist(
+  urlOrId: string,
+  accessToken?: string,
+  customClientId?: string,
+  customClientSecret?: string
+) {
   // Extract pure Spotify playlist ID if a full URL was provided
   const match = urlOrId.match(/playlist\/([a-zA-Z0-9]+)/);
   const playlistId = match ? match[1] : urlOrId.trim();
@@ -312,17 +370,25 @@ export async function importSpotifyPlaylist(urlOrId: string, accessToken?: strin
     bpm?: number;
   }> = [];
 
-  // Attempt 1: If access token provided, try official Spotify Web API (paginating all pages)
-  if (accessToken) {
+  // Attempt 1: Official Spotify Web API with full pagination across all pages (up to 5,000 tracks)
+  const effectiveToken = accessToken || (await getSpotifyAppToken(customClientId, customClientSecret));
+
+  if (effectiveToken) {
     try {
+      console.log(`[Spotify API] Paginating complete playlist ${playlistId} via official Web API...`);
       let nextUrl: string | null = `https://api.spotify.com/v1/playlists/${playlistId}`;
       let isFirstPage = true;
+      let pageCount = 0;
 
-      while (nextUrl && trackItems.length < 2500) {
+      while (nextUrl && trackItems.length < 5000) {
+        pageCount++;
         const response = await fetch(nextUrl, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { Authorization: `Bearer ${effectiveToken}` },
         });
-        if (!response.ok) break;
+        if (!response.ok) {
+          console.warn(`[Spotify API] Page ${pageCount} fetch failed (${response.status})`);
+          break;
+        }
         const data = (await response.json()) as any;
         if (isFirstPage) {
           playlistName = data.name || playlistName;
@@ -336,8 +402,8 @@ export async function importSpotifyPlaylist(urlOrId: string, accessToken?: strin
           if (!item.track) continue;
           const t = item.track;
           trackItems.push({
-            id: `trk-spot-${t.id}`,
-            title: t.name,
+            id: `trk-spot-${t.id || Date.now() + Math.random().toString(36).substring(2, 6)}`,
+            title: t.name || 'Untitled',
             artist: t.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
             album: t.album?.name,
             durationSeconds: Math.round((t.duration_ms || 180000) / 1000),
@@ -348,8 +414,9 @@ export async function importSpotifyPlaylist(urlOrId: string, accessToken?: strin
 
         nextUrl = data.tracks?.next || data.next || null;
       }
+      console.log(`[Spotify API] Successfully fetched ${trackItems.length} total tracks across ${pageCount} page(s) for "${playlistName}".`);
     } catch (e) {
-      console.warn('[Spotify] Official API playlist fetch fallback:', e);
+      console.warn('[Spotify API] Official API playlist fetch fallback:', e);
     }
   }
 
@@ -454,6 +521,187 @@ export async function importSpotifyPlaylist(urlOrId: string, accessToken?: strin
   return { playlistId: plId, name: playlistName, tracksImported: trackItems.length };
 }
 
+/**
+ * Bulk import a list of Spotify track URLs, URIs, or plain text tracklines (e.g. from Cmd+A -> Cmd+C in Spotify).
+ * Can effortlessly import hundreds or thousands of songs in a single action.
+ */
+export async function importTracklistText(
+  rawText: string,
+  customName?: string,
+  accessToken?: string,
+  customClientId?: string,
+  customClientSecret?: string
+) {
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (lines.length === 0) {
+    throw new Error('No tracks found in the provided text.');
+  }
+
+  const playlistName = customName?.trim() || `Imported Tracks (${new Date().toLocaleDateString()})`;
+  const playlistDescription = `Imported tracklist containing ${lines.length} items`;
+  let playlistCover = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80';
+
+  const effectiveToken = accessToken || (await getSpotifyAppToken(customClientId, customClientSecret));
+
+  // Identify Spotify track IDs or plain text song lines
+  const spotifyTrackIds: string[] = [];
+  const parsedLines: Array<{ raw: string; spotifyId?: string; title?: string; artist?: string }> = [];
+
+  for (const line of lines) {
+    const urlMatch = line.match(/(?:open\.spotify\.com\/track\/|spotify:track:)([a-zA-Z0-9]+)/);
+    if (urlMatch) {
+      spotifyTrackIds.push(urlMatch[1]);
+      parsedLines.push({ raw: line, spotifyId: urlMatch[1] });
+    } else {
+      // Parse plain text e.g. "1. The Weeknd - Blinding Lights" or "Queen - Bohemian Rhapsody" or "Song by Artist"
+      const cleanLine = line.replace(/^\d+[\.\)]\s*/, '').trim();
+      let artist = 'Various Artists';
+      let title = cleanLine;
+
+      if (cleanLine.includes(' - ') || cleanLine.includes(' – ') || cleanLine.includes(' — ')) {
+        const parts = cleanLine.split(/\s*[-–—]\s*/);
+        if (parts.length >= 2) {
+          artist = parts[0].trim();
+          title = parts.slice(1).join(' - ').trim();
+        }
+      } else if (/\s+by\s+/i.test(cleanLine)) {
+        const parts = cleanLine.split(/\s+by\s+/i);
+        if (parts.length >= 2) {
+          title = parts[0].trim();
+          artist = parts[1].trim();
+        }
+      }
+
+      parsedLines.push({ raw: line, title, artist });
+    }
+  }
+
+  // If we have Spotify IDs and a token, fetch enriched metadata in batches of 50
+  const spotifyMetadataMap = new Map<
+    string,
+    { title: string; artist: string; album: string; durationSeconds: number; coverArtUrl: string; isrc?: string }
+  >();
+
+  if (spotifyTrackIds.length > 0 && effectiveToken) {
+    const batchSize = 50;
+    for (let i = 0; i < spotifyTrackIds.length; i += batchSize) {
+      const batchIds = spotifyTrackIds.slice(i, i + batchSize);
+      try {
+        const res = await fetch(`https://api.spotify.com/v1/tracks?ids=${batchIds.join(',')}`, {
+          headers: { Authorization: `Bearer ${effectiveToken}` },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as any;
+          for (const t of data.tracks || []) {
+            if (!t) continue;
+            spotifyMetadataMap.set(t.id, {
+              title: t.name,
+              artist: t.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+              album: t.album?.name || 'Single',
+              durationSeconds: Math.round((t.duration_ms || 180000) / 1000),
+              coverArtUrl: t.album?.images?.[0]?.url || playlistCover,
+              isrc: t.external_ids?.isrc,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Spotify API] Bulk track lookup batch failed:', err);
+      }
+    }
+  }
+
+  const trackItems: Array<{
+    id: string;
+    title: string;
+    artist: string;
+    album?: string;
+    durationSeconds: number;
+    coverArtUrl: string;
+    isrc?: string | null;
+  }> = [];
+
+  for (let idx = 0; idx < parsedLines.length; idx++) {
+    const item = parsedLines[idx];
+    if (item.spotifyId && spotifyMetadataMap.has(item.spotifyId)) {
+      const meta = spotifyMetadataMap.get(item.spotifyId)!;
+      trackItems.push({
+        id: `trk-spot-${item.spotifyId}`,
+        title: meta.title,
+        artist: meta.artist,
+        album: meta.album,
+        durationSeconds: meta.durationSeconds,
+        coverArtUrl: meta.coverArtUrl,
+        isrc: meta.isrc || null,
+      });
+      if (idx === 0 && meta.coverArtUrl) {
+        playlistCover = meta.coverArtUrl;
+      }
+    } else if (item.spotifyId) {
+      trackItems.push({
+        id: `trk-spot-${item.spotifyId}`,
+        title: `Spotify Track ${item.spotifyId}`,
+        artist: 'Spotify Artist',
+        album: playlistName,
+        durationSeconds: 180,
+        coverArtUrl: playlistCover,
+      });
+    } else {
+      trackItems.push({
+        id: `trk-txt-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+        title: item.title || 'Untitled',
+        artist: item.artist || 'Unknown Artist',
+        album: playlistName,
+        durationSeconds: 200,
+        coverArtUrl: playlistCover,
+      });
+    }
+  }
+
+  const plId = `pl-bulk-${Date.now()}`;
+  db.prepare(`
+    INSERT OR REPLACE INTO playlists (id, name, description, is_smart, cover_url)
+    VALUES (?, ?, ?, 0, ?)
+  `).run(plId, playlistName, playlistDescription, playlistCover);
+
+  const insertTrackStmt = db.prepare(`
+    INSERT OR REPLACE INTO tracks (
+      id, title, artist, album, duration_seconds, source_type,
+      source_url, youtube_video_id, cover_art_url, bpm, energy, genre, isrc, bitrate
+    ) VALUES (?, ?, ?, ?, ?, 'local', ?, null, ?, 120, 0.7, 'Pop', ?, 320)
+  `);
+
+  const linkStmt = db.prepare(`
+    INSERT OR REPLACE INTO playlist_tracks (id, playlist_id, track_id, position)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  const transaction = db.transaction((tracks: typeof trackItems) => {
+    tracks.forEach((t, idx) => {
+      const streamUrl = `/api/stream/${t.id}`;
+      insertTrackStmt.run(
+        t.id,
+        t.title,
+        t.artist,
+        t.album || null,
+        t.durationSeconds,
+        streamUrl,
+        t.coverArtUrl || playlistCover,
+        t.isrc || null
+      );
+      linkStmt.run(`pltr-${plId}-${idx}`, plId, t.id, idx);
+    });
+  });
+
+  transaction(trackItems);
+
+  return { playlistId: plId, name: playlistName, tracksImported: trackItems.length };
+}
+
 export function seedDemoDataHandler() {
   return seedDemoData();
 }
+

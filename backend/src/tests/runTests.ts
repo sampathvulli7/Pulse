@@ -189,7 +189,21 @@ async function runAllTests() {
     const suggestions = await suggestRes.json() as any;
     assert(Array.isArray(suggestions.songs));
     assert(Array.isArray(suggestions.artists));
-    console.log(`✓ Passed: Stats returned totalTracks=${stats.totalTracks}, search suggestions delivered categorized hits.`);
+    // 13. Test Bulk Tracklist & Large Playlist Import API
+    console.log('\n[Test 13] Testing Bulk Tracklist & Large Playlist Import API...');
+    const bulkImportRes = await fetch(`${baseUrl}/api/spotify/import-playlist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playlistName: 'Mega 150+ Playlist Test',
+        rawTracklist: Array.from({ length: 150 }, (_, i) => `Artist ${i + 1} - Hit Song Number ${i + 1}`).join('\n'),
+      }),
+    });
+    assert.strictEqual(bulkImportRes.status, 200);
+    const bulkImport = await bulkImportRes.json() as any;
+    assert.strictEqual(bulkImport.tracksImported, 150);
+    assert(bulkImport.playlistId.startsWith('pl-bulk-'));
+    console.log(`✓ Passed: Bulk importer successfully processed all ${bulkImport.tracksImported} tracks together into "${bulkImport.name}".`);
 
     console.log('\n=========================================');
     console.log('ALL BACKEND INTEGRATION TESTS PASSED (0 failures)');

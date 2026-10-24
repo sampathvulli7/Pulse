@@ -18,6 +18,7 @@ import {
   getSpotifyAuthUrl,
   exchangeSpotifyCode,
   importSpotifyPlaylist,
+  importTracklistText,
   searchSpotifyTracks,
   resolveYouTubeAudioId,
 } from './services/spotify';
@@ -95,12 +96,18 @@ app.post('/api/spotify/callback', async (req, res) => {
 
 app.post('/api/spotify/import-playlist', async (req, res) => {
   try {
-    const { playlistId, url, accessToken } = req.body;
+    const { playlistId, url, accessToken, clientId, clientSecret, rawTracklist, playlistName } = req.body;
+
+    if (rawTracklist && typeof rawTracklist === 'string' && rawTracklist.trim()) {
+      const result = await importTracklistText(rawTracklist, playlistName, accessToken, clientId, clientSecret);
+      return res.json(result);
+    }
+
     const target = url || playlistId;
     if (!target) {
-      return res.status(400).json({ error: 'playlistId or url is required' });
+      return res.status(400).json({ error: 'playlistId, url, or rawTracklist is required' });
     }
-    const result = await importSpotifyPlaylist(target, accessToken);
+    const result = await importSpotifyPlaylist(target, accessToken, clientId, clientSecret);
     res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: err.message });
