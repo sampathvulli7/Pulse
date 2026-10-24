@@ -220,7 +220,7 @@ export const RightPanel: React.FC = () => {
 
   return (
     <aside
-      className="spotify-right-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/90 dark:bg-[#121214]/90 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white border-l border-black/5 dark:border-white/5"
+      className="spotify-right-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/40 dark:bg-[#0c1220]/60 backdrop-blur-3xl select-none text-[#14171f] dark:text-white border-l border-black/5 dark:border-white/5"
       style={{ width: `${rightRailWidth}px` }}
       aria-label="Context panel"
     >
@@ -350,25 +350,25 @@ export const RightPanel: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2.5 rounded-lg bg-white/70 dark:bg-black/30 border border-black/5 dark:border-transparent">
+                    <div className="p-2.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5 backdrop-blur-xs">
                       <span className="text-[#86868b] dark:text-[#727272] block text-[10px] uppercase font-semibold">Sampling</span>
                       <span className="font-semibold text-[#1d1d1f] dark:text-white">
                         {currentTrack.sampleRate ? `${currentTrack.sampleRate >= 1000 ? `${currentTrack.sampleRate / 1000} kHz` : `${currentTrack.sampleRate} Hz`}` : '44.1 kHz'}
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-white/70 dark:bg-black/30 border border-black/5 dark:border-transparent">
+                    <div className="p-2.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5 backdrop-blur-xs">
                       <span className="text-[#86868b] dark:text-[#727272] block text-[10px] uppercase font-semibold">Bit Depth</span>
                       <span className="font-semibold text-[#1d1d1f] dark:text-white">
                         {currentTrack.bitDepth ? `${currentTrack.bitDepth}-bit Studio` : '24-bit Lossless'}
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-white/70 dark:bg-black/30 border border-black/5 dark:border-transparent">
+                    <div className="p-2.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5 backdrop-blur-xs">
                       <span className="text-[#86868b] dark:text-[#727272] block text-[10px] uppercase font-semibold">BPM / Tempo</span>
                       <span className="font-semibold text-[#1d1d1f] dark:text-white">
                         {currentTrack.bpm ? `${Math.round(currentTrack.bpm)} BPM` : 'Adaptive'}
                       </span>
                     </div>
-                    <div className="p-2.5 rounded-lg bg-white/70 dark:bg-black/30 border border-black/5 dark:border-transparent">
+                    <div className="p-2.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5 backdrop-blur-xs">
                       <span className="text-[#86868b] dark:text-[#727272] block text-[10px] uppercase font-semibold">Key</span>
                       <span className="font-semibold text-[#1d1d1f] dark:text-white">
                         {audioFeatures?.key_name || currentTrack.keySignature || 'Standard 440Hz'}
@@ -466,7 +466,7 @@ export const RightPanel: React.FC = () => {
         {rightPanelTab === 'queue' && (
           <div className="space-y-5 animate-in fade-in duration-150">
             {/* Snapshot trigger */}
-            <div className="p-3.5 rounded-xl bg-black/5 dark:bg-[#181818] border border-black/5 dark:border-white/5">
+            <div className="p-3.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5 backdrop-blur-xs">
               <span className="text-xs font-semibold text-[#86868b] dark:text-[#b3b3b3] block mb-2">
                 Save Queue Snapshot
               </span>
@@ -476,7 +476,7 @@ export const RightPanel: React.FC = () => {
                   placeholder="Snapshot name..."
                   value={snapshotName}
                   onChange={(e) => setSnapshotName(e.target.value)}
-                  className="flex-1 bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#1d1d1f] dark:text-white placeholder-[#86868b] focus:outline-none focus:border-[#fa243c]"
+                  className="flex-1 bg-black/[0.04] dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#14171f] dark:text-white placeholder-[#86868b] focus:outline-none focus:border-[#f97316]"
                 />
                 <button
                   onClick={handleSaveSnapshot}

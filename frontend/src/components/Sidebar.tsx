@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       <aside
-        className={`spotify-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/55 dark:bg-[#121214]/65 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white border border-black/5 dark:border-white/5 transition-all duration-150 relative ${
+        className={`spotify-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/40 dark:bg-[#0c1220]/60 backdrop-blur-3xl select-none text-[#14171f] dark:text-white border border-black/5 dark:border-white/5 transition-all duration-150 relative ${
           isCollapsed ? 'w-[72px]' : ''
         }`}
       style={{ width: isCollapsed ? '72px' : `${leftRailWidth}px` }}
@@ -136,13 +136,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Brand Header */}
       <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-        <div className="w-2.5 h-2.5 rounded-full bg-[#fa243c] animate-pulse shrink-0" />
+        <div className="w-2.5 h-2.5 rounded-full bg-[#f97316] animate-pulse shrink-0" />
         {!isCollapsed && (
           <>
-            <span className="font-black text-xs tracking-widest text-[#1d1d1f] dark:text-white uppercase truncate">
+            <span className="font-black text-xs tracking-widest text-[#14171f] dark:text-white uppercase truncate">
               Sampath's Studio
             </span>
-            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-[#fa243c]/10 text-[#fa243c] border border-[#fa243c]/20 ml-auto shrink-0">
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20 ml-auto shrink-0">
               PRO
             </span>
           </>
@@ -150,13 +150,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Top Nav Block (Home & Search) */}
-      <div className="bg-slate-50/70 dark:bg-white/[0.03] rounded-xl p-2.5 space-y-1 mb-2 border border-black/5 dark:border-white/5">
+      <div className="bg-black/[0.02] dark:bg-white/[0.02] backdrop-blur-xs rounded-xl p-2.5 space-y-1 mb-2 border border-black/5 dark:border-white/5">
         <button
           onClick={() => onSelectPlaylist(null)}
           className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-lg text-sm font-bold transition ${
             activeView === 'library' && selectedPlaylistId === null
-              ? 'bg-black/5 dark:bg-white/10 text-[#fa243c] dark:text-white'
-              : 'text-[#6e6e73] dark:text-[#b3b3b3] hover:text-[#1d1d1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+              ? 'bg-black/5 dark:bg-white/10 text-[#f97316] dark:text-white'
+              : 'text-[#5e6573] dark:text-[#b3b3b3] hover:text-[#14171f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
           }`}
           title="Home / All Tracks"
         >
@@ -168,8 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={onOpenSpotifySearch}
           className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-lg text-sm font-bold transition ${
             activeView === 'search'
-              ? 'bg-black/5 dark:bg-white/10 text-[#fa243c] dark:text-white'
-              : 'text-[#6e6e73] dark:text-[#b3b3b3] hover:text-[#1d1d1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+              ? 'bg-black/5 dark:bg-white/10 text-[#f97316] dark:text-white'
+              : 'text-[#5e6573] dark:text-[#b3b3b3] hover:text-[#14171f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
           }`}
           title="Search Music"
         >
@@ -179,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Library Rail Container */}
-      <div className="bg-slate-50/70 dark:bg-white/[0.03] rounded-xl flex-1 flex flex-col min-h-0 overflow-hidden border border-black/5 dark:border-white/5">
+      <div className="bg-black/[0.02] dark:bg-white/[0.02] backdrop-blur-xs rounded-xl flex-1 flex flex-col min-h-0 overflow-hidden border border-black/5 dark:border-white/5">
         {/* Your Library Header */}
         <div className="p-3 flex items-center justify-between">
           <button
