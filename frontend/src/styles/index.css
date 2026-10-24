@@ -82,7 +82,33 @@ body {
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Seamless Circular Wave View Transition for Theme Toggle */
+[data-theme-transitioning="true"]::view-transition-old(root),
+[data-theme-transitioning="true"]::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal !important;
+}
+[data-theme-transitioning="true"]::view-transition-old(root) {
+  z-index: 1 !important;
+}
+[data-theme-transitioning="true"]::view-transition-new(root) {
+  z-index: 99999 !important;
+}
+
+/* Unified Fallback Theme Transition (Animates background, panels, buttons, and text simultaneously) */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              fill 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-delay: 0s !important;
 }
 
 /* Apple Music + Spotify Hybrid 3-Pane Root Grid Container */
@@ -144,7 +170,10 @@ body {
     border-radius: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    padding-bottom: 120px !important;
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior-y: contain !important;
   }
@@ -155,18 +184,21 @@ body {
 
   /* Optimized lightweight mobile blurs to save battery and GPU cycles */
   .backdrop-blur-2xl, .backdrop-blur-xl {
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
   }
 
-  /* Touch optimization */
+  /* Touch optimization and silky smooth momentum */
+  * {
+    -webkit-tap-highlight-color: transparent !important;
+  }
+
   button, [role="button"], a {
-    -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
 }
 
-/* Hide scrollbars cleanly across all modern mobile browsers */
+/* Hide scrollbars cleanly across all modern mobile browsers (Android Chrome, iOS Safari, etc) */
 .no-scrollbar {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
@@ -175,6 +207,20 @@ body {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
+}
+
+/* High-performance mobile track row rendering: skips layout & paint outside viewport */
+.mobile-track-item {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 62px;
+  will-change: transform, opacity;
+}
+
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Touch Safe Area Insets */

@@ -26,6 +26,7 @@ export interface Track {
   playCount: number;
   skipCount: number;
   isFavorite?: boolean;
+  isDownloaded?: boolean;
   uid?: string; // Unique instance ID in dual-queue
   lastPlayedAt?: string;
   createdAt?: string;

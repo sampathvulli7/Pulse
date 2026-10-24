@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { initDatabase } from './db/database';
 import { seedDemoData } from './db/seed';
 import { trackRouter } from './routes/tracks';
@@ -8,6 +9,7 @@ import { playlistRouter } from './routes/playlists';
 import { snapshotRouter } from './routes/snapshots';
 import { presetRouter } from './routes/presets';
 import { handleAudioStream, handleStreamProxy, handleImageProxy } from './routes/stream';
+import { handleAudioDownload } from './routes/download';
 import { handleLyrics } from './routes/lyrics';
 import { scanDirectory } from './services/scanner';
 import { ensureFullAudio } from './services/fullAudio';
@@ -50,6 +52,7 @@ app.use('/api', userStatsRouter);
 // Audio & Image Streaming (HTTP 206 Partial Content + Full CORS + Image Fallback)
 app.get('/api/stream/proxy', handleStreamProxy);
 app.get('/api/stream/:id', handleAudioStream);
+app.get('/api/download/:id', handleAudioDownload);
 app.get('/api/image/proxy', handleImageProxy);
 
 // Lyrics (LRCLIB Proxy)
@@ -230,6 +233,16 @@ app.post('/api/spotify/resolve-track', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', name: "Sampath's Studio API", timestamp: new Date().toISOString() });
 });
+
+// Serve frontend SPA in production for unified 1-service deployment
+const frontendDist = path.resolve(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -2,6 +2,7 @@ import { Track, ABLoopMarker } from '../types/audio';
 import { globalAudioGraph, AudioGraph, AudioDeck } from './AudioGraph';
 import { Crossfader } from './Crossfader';
 import { globalYouTubeBridge, YouTubeBridge } from './YouTubeBridge';
+import { getOfflineTrackUrl } from '../utils/offlineStorage';
 
 export interface PlaybackControllerCallbacks {
   onTimeUpdate: (currentTime: number, duration: number) => void;
@@ -111,7 +112,8 @@ export class PlaybackController {
 
     const activeDeck = this.audioGraph.getActiveDeck();
     const inactiveDeck = this.audioGraph.getInactiveDeck();
-    const streamUrl = track.sourceUrl || `/api/stream/${track.id}`;
+    const offlineUrl = await getOfflineTrackUrl(track.id);
+    const streamUrl = offlineUrl || track.sourceUrl || `/api/stream/${track.id}`;
 
     // Always cancel any pending crossfades from previous track switches
     this.crossfader.cancel(activeDeck, inactiveDeck, ctx);

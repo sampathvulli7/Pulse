@@ -118,7 +118,7 @@ export interface PlayerState {
   isStorageModalOpen: boolean;
 
   setTheme: (theme: AppTheme) => void;
-  toggleTheme: () => void;
+  toggleTheme: (event?: any) => void;
   toggleTimeDisplayMode: () => void;
   setAudioQualityTier: (tier: AudioQualityTier) => void;
   setSpatialAudioMode: (mode: SpatialAudioMode) => void;
@@ -623,9 +623,76 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  toggleTheme: () => {
+  toggleTheme: (event?: any) => {
     const next = get().theme === 'dark' ? 'light' : 'dark';
-    get().setTheme(next);
+
+    if (
+      typeof document !== 'undefined' &&
+      (document as any).startViewTransition &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      document.documentElement.setAttribute('data-theme-transitioning', 'true');
+
+      let x = typeof window !== 'undefined' ? window.innerWidth - 30 : 100;
+      let y = 30;
+
+      if (event) {
+        if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+          x = event.clientX;
+          y = event.clientY;
+        } else if (event.touches && event.touches[0]) {
+          x = event.touches[0].clientX;
+          y = event.touches[0].clientY;
+        } else if (event.currentTarget && typeof event.currentTarget.getBoundingClientRect === 'function') {
+          const rect = event.currentTarget.getBoundingClientRect();
+          x = rect.left + rect.width / 2;
+          y = rect.top + rect.height / 2;
+        }
+      }
+
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+      );
+
+      const transition = (document as any).startViewTransition(() => {
+        get().setTheme(next);
+      });
+
+      transition.ready
+        .then(() => {
+          const clipPath = [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`,
+          ];
+          const anim = document.documentElement.animate(
+            {
+              clipPath: clipPath,
+            },
+            {
+              duration: 450,
+              easing: 'cubic-bezier(0.2, 0, 0, 1)',
+              pseudoElement: '::view-transition-new(root)',
+            }
+          );
+          return anim.finished;
+        })
+        .catch(() => {})
+        .finally(() => {
+          document.documentElement.removeAttribute('data-theme-transitioning');
+        });
+    } else {
+      // Synchronized fallback transition: all elements animate together with no button jitter
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.add('theme-transitioning');
+        get().setTheme(next);
+        setTimeout(() => {
+          document.documentElement.classList.remove('theme-transitioning');
+        }, 360);
+      } else {
+        get().setTheme(next);
+      }
+    }
   },
 
   toggleTimeDisplayMode: () => {

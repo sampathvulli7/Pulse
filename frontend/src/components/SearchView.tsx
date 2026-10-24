@@ -329,15 +329,15 @@ export const SearchView: React.FC<SearchViewProps> = ({
 
         {/* Large Cupertino / Spotify Hybrid Search Input */}
         <div className="relative flex items-center">
-          <div className="w-full h-12 sm:h-14 px-4 rounded-2xl bg-slate-100/90 dark:bg-white/[0.08] hover:bg-slate-200/60 dark:hover:bg-white/[0.12] focus-within:bg-white dark:focus-within:bg-black/80 focus-within:ring-2 focus-within:ring-[#fa243c] border border-black/5 dark:border-white/10 transition-all flex items-center gap-3 shadow-inner">
-            <Search className="w-5 h-5 text-[#86868b] shrink-0" />
+          <div className="w-full h-11 sm:h-14 px-3.5 sm:px-4 rounded-2xl bg-slate-100/90 dark:bg-white/[0.08] hover:bg-slate-200/60 dark:hover:bg-white/[0.12] focus-within:bg-white dark:focus-within:bg-[#1a1a1c] focus-within:border-black/20 dark:focus-within:border-white/20 focus-within:ring-4 focus-within:ring-[#fa243c]/15 border border-black/5 dark:border-white/10 transition-all flex items-center gap-2.5 sm:gap-3 shadow-inner">
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-[#86868b] shrink-0" />
             <input
               ref={inputRef}
               type="text"
               placeholder="What do you want to play? (Artists, songs, albums, or paste link...)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full text-sm sm:text-base bg-transparent text-[#1d1d1f] dark:text-white placeholder-[#86868b] focus:outline-none"
+              className="w-full text-xs sm:text-base bg-transparent text-[#1d1d1f] dark:text-white placeholder-[#86868b] focus:outline-none"
             />
             {loading && <Loader2 className="w-4 h-4 text-[#fa243c] animate-spin shrink-0" />}
             {query.trim() && (
@@ -420,33 +420,33 @@ export const SearchView: React.FC<SearchViewProps> = ({
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 p-4 sm:p-8">
+      <div className="flex-1 p-3.5 sm:p-8">
         {!query.trim() ? (
           /* Empty Search State: Spotify & Apple Music "Browse All" Genre Grid */
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#1d1d1f] dark:text-white">
+              <h2 className="text-lg sm:text-2xl font-black tracking-tight text-[#1d1d1f] dark:text-white">
                 Browse all
               </h2>
-              <span className="text-xs text-[#86868b] font-medium">
+              <span className="text-xs text-[#86868b] font-medium hidden sm:inline">
                 Tap any category to start listening
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
               {BROWSE_CATEGORIES.map((cat) => {
                 const IconComponent = cat.icon;
                 return (
                   <div
                     key={cat.id}
                     onClick={() => setQuery(cat.query)}
-                    className={`group relative h-28 sm:h-36 rounded-2xl p-4 bg-gradient-to-br ${cat.gradient} cursor-pointer shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 overflow-hidden text-white flex flex-col justify-between`}
+                    className={`group relative h-20 sm:h-32 rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-gradient-to-br ${cat.gradient} cursor-pointer shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-200 overflow-hidden text-white flex flex-col justify-between`}
                   >
-                    <span className="font-black text-sm sm:text-base leading-tight drop-shadow-sm">
+                    <span className="font-extrabold text-xs sm:text-base leading-snug drop-shadow-xs">
                       {cat.title}
                     </span>
-                    <div className="self-end translate-x-2 translate-y-2 opacity-85 group-hover:scale-110 group-hover:opacity-100 transition-all duration-200">
-                      <IconComponent className="w-12 h-12 sm:w-16 sm:h-16 stroke-[1.5]" />
+                    <div className="self-end translate-x-1 translate-y-1 opacity-80 group-hover:scale-105 transition-all duration-200">
+                      <IconComponent className="w-8 h-8 sm:w-14 sm:h-14 stroke-[1.5]" />
                     </div>
                   </div>
                 );
@@ -643,7 +643,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                     <div
                       key={`${track.id}-${idx}`}
                       onClick={() => handlePlayNow(track)}
-                      className={`group flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer border border-transparent hover:border-black/5 dark:hover:border-white/5 ${
+                      className={`mobile-track-item group flex items-center justify-between px-3 py-2.5 rounded-xl transition cursor-pointer border border-transparent hover:border-black/5 dark:hover:border-white/5 active:scale-[0.99] ${
                         isThisPlaying
                           ? 'bg-[#fa243c]/10 text-[#fa243c]'
                           : 'hover:bg-black/5 dark:hover:bg-white/5 text-[#1d1d1f] dark:text-white'

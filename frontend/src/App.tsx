@@ -383,18 +383,16 @@ export function App() {
 
         <div className="flex items-center gap-1 -mr-1">
           <button
-            onClick={() => navigateView('search')}
-            className={`p-2 rounded-xl transition ${
-              activeView === 'search'
-                ? 'bg-[#fa243c] text-white shadow-xs'
-                : 'text-[#1d1d1f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95'
+            onClick={() => navigateView(activeView === 'search' ? 'library' : 'search')}
+            className={`p-2 rounded-xl transition text-[#1d1d1f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 ${
+              activeView === 'search' ? 'text-[#fa243c] dark:text-[#fa243c]' : ''
             }`}
             aria-label="Search"
           >
             <Search className="w-5 h-5" />
           </button>
           <button
-            onClick={toggleTheme}
+            onClick={(e) => toggleTheme(e)}
             className="p-2 rounded-xl text-[#1d1d1f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition"
             aria-label="Toggle dark / light theme"
           >

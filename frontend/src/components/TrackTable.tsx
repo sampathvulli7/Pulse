@@ -14,9 +14,20 @@ import {
   Disc,
   Radio,
   Sparkles,
+  Shuffle,
+  MoreHorizontal,
+  Share2,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { Track } from '../types/audio';
 import { usePlayerStore } from '../store/playerStore';
+import {
+  downloadTrackToDevice,
+  saveTrackOffline,
+  removeTrackOffline,
+  getAllOfflineTracks,
+} from '../utils/offlineStorage';
 
 interface TrackTableProps {
   tracks: Track[];
@@ -52,6 +63,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({
   const [sortBy, setSortBy] = useState<'default' | 'title' | 'artist' | 'duration' | 'bpm'>('default');
   const [addedTrackId, setAddedTrackId] = useState<string | null>(null);
   const [confirmDeletePlaylist, setConfirmDeletePlaylist] = useState(false);
+  const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState(false);
 
   // Progressive rendering window
   const [visibleCount, setVisibleCount] = useState<number>(50);
@@ -59,7 +71,87 @@ export const TrackTable: React.FC<TrackTableProps> = ({
   const [enhancedTracks, setEnhancedTracks] = useState<(Track & { isEnhancedRecommendation?: boolean })[]>([]);
   const [loadingEnhance, setLoadingEnhance] = useState(false);
 
+  // Offline Music & Direct Device Downloads
+  const [downloadedMap, setDownloadedMap] = useState<Record<string, boolean>>({});
+  const [downloadingMap, setDownloadingMap] = useState<Record<string, boolean>>({});
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshOffline = async () => {
+      try {
+        const offlineList = await getAllOfflineTracks();
+        if (mounted) {
+          const map: Record<string, boolean> = {};
+          offlineList.forEach((t) => {
+            map[t.id] = true;
+          });
+          setDownloadedMap(map);
+        }
+      } catch (e) {}
+    };
+    refreshOffline();
+    window.addEventListener('offline-tracks-updated', refreshOffline);
+    return () => {
+      mounted = false;
+      window.removeEventListener('offline-tracks-updated', refreshOffline);
+    };
+  }, []);
+
+  const handleDownloadTrack = async (track: Track, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDownloadingMap((prev) => ({ ...prev, [track.id]: true }));
+    setToastMessage(`⬇️ Downloading "${track.title}"...`);
+
+    // 1. Direct device file download (phone/PC Downloads folder)
+    downloadTrackToDevice(track);
+
+    // 2. Cache in offline browser storage for zero-network playback
+    const ok = await saveTrackOffline(track);
+    setDownloadingMap((prev) => ({ ...prev, [track.id]: false }));
+    if (ok) {
+      setDownloadedMap((prev) => ({ ...prev, [track.id]: true }));
+      setToastMessage(`✓ "${track.title}" downloaded and saved for offline listening!`);
+    } else {
+      setToastMessage(`✓ Download started for "${track.title}"!`);
+    }
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleDownloadAll = async () => {
+    const toDownload = visibleTracks.slice(0, 15);
+    setToastMessage(`⬇️ Downloading ${toDownload.length} tracks to device...`);
+    for (const tr of toDownload) {
+      setDownloadingMap((prev) => ({ ...prev, [tr.id]: true }));
+      downloadTrackToDevice(tr);
+      await saveTrackOffline(tr);
+      setDownloadingMap((prev) => ({ ...prev, [tr.id]: false }));
+      setDownloadedMap((prev) => ({ ...prev, [tr.id]: true }));
+    }
+    setToastMessage(`✓ ${toDownload.length} tracks downloaded and ready offline!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
   const genres = ['All', 'Synthwave', 'Rock', 'Lo-Fi', 'Electronic', 'Metal', 'Classical', 'Pop', 'Jazz'];
+
+  const totalDurationSec = useMemo(() => {
+    return tracks.reduce((acc, t) => acc + (t.durationSeconds || 0), 0);
+  }, [tracks]);
+
+  const formatTotalDuration = (sec: number) => {
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    if (hrs > 0) return `${hrs} hr ${mins} min`;
+    return `${mins} min`;
+  };
+
+  const handlePlayShuffle = () => {
+    if (filteredAndSorted.length > 0) {
+      const randIdx = Math.floor(Math.random() * filteredAndSorted.length);
+      playTrack(filteredAndSorted[randIdx], filteredAndSorted);
+      usePlayerStore.getState().setShuffleMode('fisher-yates');
+    }
+  };
 
   const filteredAndSorted = useMemo(() => {
     const existingIds = new Set(tracks.map((t) => t.id));
@@ -221,35 +313,52 @@ export const TrackTable: React.FC<TrackTableProps> = ({
       className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-white/85 dark:bg-[#121214]/90 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white transition-colors"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
-      {/* Apple Music + Spotify Hybrid Playlist Hero Header with Ambient Frosted Gradient */}
-      <div className="relative p-4 sm:p-6 md:p-8 bg-gradient-to-b from-slate-200/50 via-white/20 to-transparent dark:from-[#2a2a2a] dark:to-transparent flex flex-row items-center md:items-end gap-3.5 sm:gap-6 shrink-0 border-b border-black/5 dark:border-white/5">
+      {/* Toast Notification Banner for Downloads & Offline Saving */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 bg-[#fa243c] text-white text-xs font-bold rounded-full shadow-2xl animate-in fade-in slide-in-from-top duration-200">
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Apple Music + Spotify Hybrid Playlist Hero Header */}
+      <div className="relative p-3.5 sm:p-8 bg-gradient-to-b from-slate-200/50 via-white/20 to-transparent dark:from-[#252528] dark:to-transparent flex flex-row sm:flex-row items-center sm:items-end gap-3.5 sm:gap-6 shrink-0 border-b border-black/5 dark:border-white/5">
         {/* Hero Artwork */}
-        <div className="w-20 h-20 sm:w-36 sm:h-36 md:w-52 md:h-52 rounded-xl md:rounded-2xl shadow-xl overflow-hidden bg-slate-200 dark:bg-[#181818] shrink-0 border border-black/5 dark:border-white/5 flex items-center justify-center">
+        <div className="w-20 h-20 sm:w-44 sm:h-44 md:w-52 md:h-52 rounded-xl sm:rounded-2xl shadow-md sm:shadow-2xl overflow-hidden bg-slate-200 dark:bg-[#181818] shrink-0 border border-black/10 dark:border-white/10 flex items-center justify-center hardware-accelerated">
           {tracks.length > 0 && tracks[0].coverArtUrl ? (
             <img
               src={tracks[0].coverArtUrl}
-              alt=""
+              alt={title}
               className="w-full h-full object-cover"
             />
           ) : (
-            <Disc className="w-10 h-10 sm:w-20 sm:h-20 text-[#86868b]" />
+            <Disc className="w-8 h-8 sm:w-20 sm:h-20 text-[#86868b]" />
           )}
         </div>
 
         {/* Hero Text */}
-        <div className="flex-1 min-w-0 flex flex-col justify-end">
+        <div className="flex-1 min-w-0 flex flex-col items-start text-left justify-center sm:justify-end">
           <span className="text-[10px] sm:text-xs uppercase font-bold text-[#86868b] tracking-wider block mb-0.5 sm:mb-1">
             {playlistId ? 'Playlist' : 'Collection'}
           </span>
-          <h1 className="text-xl sm:text-3xl md:text-5xl font-black tracking-tight text-[#1d1d1f] dark:text-white mb-1 md:mb-2 truncate">
+          <h1 className="text-lg sm:text-3xl md:text-5xl font-black tracking-tight text-[#1d1d1f] dark:text-white line-clamp-1 sm:line-clamp-2 mb-0.5 sm:mb-2">
             {title}
           </h1>
-          <p className="text-xs sm:text-sm text-[#6e6e73] dark:text-[#b3b3b3] mb-2 sm:mb-4 line-clamp-1 sm:line-clamp-2">{subtitle}</p>
+          {subtitle && (
+            <p className="text-xs sm:text-sm text-[#6e6e73] dark:text-[#a1a1a6] line-clamp-1 sm:line-clamp-2 max-w-lg mb-1 sm:mb-3">
+              {subtitle}
+            </p>
+          )}
 
-          <div className="flex items-center gap-2 text-xs font-medium text-[#6e6e73] dark:text-[#b3b3b3]">
+          <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-medium text-[#6e6e73] dark:text-[#a1a1a6]">
             <span className="font-bold text-[#1d1d1f] dark:text-white">Sampath's Studio</span>
             <span>•</span>
             <span>{filteredAndSorted.length} songs</span>
+            {totalDurationSec > 0 && (
+              <>
+                <span>•</span>
+                <span>{formatTotalDuration(totalDurationSec)}</span>
+              </>
+            )}
             {onOpenAddSongs && (
               <>
                 <span>•</span>
@@ -266,9 +375,9 @@ export const TrackTable: React.FC<TrackTableProps> = ({
       </div>
 
       {/* Action Toolbar & Filters */}
-      <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md z-20 border-b border-black/5 dark:border-white/5">
+      <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3.5 sticky top-0 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md z-20 border-b border-black/5 dark:border-white/5">
         {/* Play Button & Secondary Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => {
               if (filteredAndSorted.length > 0) {
@@ -284,17 +393,27 @@ export const TrackTable: React.FC<TrackTableProps> = ({
             title="Play Playlist"
           >
             {isPlaying && currentTrack && filteredAndSorted.some((t) => t.id === currentTrack.id) ? (
-              <Pause className="w-6 h-6 fill-current" />
+              <Pause className="w-5 h-5 fill-current" />
             ) : (
-              <Play className="w-6 h-6 fill-current ml-1" />
+              <Play className="w-5 h-5 fill-current ml-0.5" />
             )}
+          </button>
+
+          {/* Shuffle Button */}
+          <button
+            onClick={handlePlayShuffle}
+            disabled={filteredAndSorted.length === 0}
+            className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-black/5 dark:bg-white/10 hover:bg-[#fa243c] dark:hover:bg-[#fa243c] text-[#1d1d1f] dark:text-white hover:text-white active:scale-95 transition flex items-center justify-center disabled:opacity-50"
+            title="Shuffle Playlist"
+          >
+            <Shuffle className="w-4 h-4" />
           </button>
 
           {/* Spotify Enhance Button */}
           <button
             onClick={handleToggleEnhance}
             disabled={loadingEnhance}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 border ${
+            className={`px-3.5 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 border active:scale-95 ${
               isEnhanced
                 ? 'bg-[#fa243c] text-white border-[#fa243c] shadow-md shadow-[#fa243c]/20'
                 : 'bg-black/5 dark:bg-white/5 text-[#6e6e73] dark:text-[#b3b3b3] border-black/10 dark:border-white/10 hover:border-[#fa243c] hover:text-[#fa243c]'
@@ -305,59 +424,103 @@ export const TrackTable: React.FC<TrackTableProps> = ({
             <span>{loadingEnhance ? 'Enhancing...' : isEnhanced ? 'Enhanced' : 'Enhance'}</span>
           </button>
 
-          {/* Delete Playlist Confirmation */}
-          {playlistId && onDeletePlaylist && (
-            <div>
-              {confirmDeletePlaylist ? (
-                <div className="flex items-center gap-2 bg-[#fa243c]/10 border border-[#fa243c]/30 rounded-lg px-3 py-1.5 text-xs">
-                  <AlertCircle className="w-4 h-4 text-[#fa243c]" />
-                  <span className="text-[#1d1d1f] dark:text-white font-medium">Delete playlist?</span>
-                  <button
-                    onClick={() => {
-                      onDeletePlaylist(playlistId);
-                      setConfirmDeletePlaylist(false);
-                    }}
-                    className="font-bold text-[#fa243c] hover:underline"
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeletePlaylist(false)}
-                    className="text-[#6e6e73] dark:text-[#b3b3b3] hover:underline ml-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmDeletePlaylist(true)}
-                  className="p-2 text-[#86868b] hover:text-[#fa243c] transition"
-                  title="Delete playlist"
+          {/* Download Playlist / Offline Save Button */}
+          <button
+            onClick={handleDownloadAll}
+            disabled={filteredAndSorted.length === 0}
+            className="px-3.5 py-2 rounded-full text-xs font-bold transition flex items-center gap-1.5 border active:scale-95 bg-black/5 dark:bg-white/5 text-[#6e6e73] dark:text-[#b3b3b3] border-black/10 dark:border-white/10 hover:border-[#fa243c] hover:text-[#fa243c] disabled:opacity-50"
+            title="Download visible tracks to device and save offline"
+          >
+            <Download className="w-3.5 h-3.5 text-[#fa243c]" />
+            <span>Download All</span>
+          </button>
+
+          {/* More Playlist Options Dropdown (Clean, replaces exposed trash icon!) */}
+          {playlistId && (
+            <div className="relative">
+              <button
+                onClick={() => setIsOptionsMenuOpen(!isOptionsMenuOpen)}
+                className="w-9 h-9 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-white active:scale-95 flex items-center justify-center transition"
+                title="Playlist Options"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {isOptionsMenuOpen && (
+                <div
+                  className="absolute left-0 mt-2 w-48 rounded-2xl bg-white/95 dark:bg-[#1e1e22]/95 backdrop-blur-xl shadow-xl border border-black/10 dark:border-white/10 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                  {onOpenAddSongs && (
+                    <button
+                      onClick={() => {
+                        setIsOptionsMenuOpen(false);
+                        onOpenAddSongs();
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-medium text-[#1d1d1f] dark:text-white hover:bg-[#fa243c] hover:text-white flex items-center gap-2 transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add tracks to playlist
+                    </button>
+                  )}
+                  {onDeletePlaylist && (
+                    <button
+                      onClick={() => {
+                        setIsOptionsMenuOpen(false);
+                        setConfirmDeletePlaylist(true);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-medium text-[#fa243c] hover:bg-[#fa243c] hover:text-white flex items-center gap-2 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete playlist
+                    </button>
+                  )}
+                </div>
               )}
+            </div>
+          )}
+
+          {/* Delete Playlist Confirmation Modal/Banner */}
+          {confirmDeletePlaylist && playlistId && onDeletePlaylist && (
+            <div className="flex items-center gap-2 bg-[#fa243c]/10 border border-[#fa243c]/30 rounded-xl px-3 py-1.5 text-xs animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 text-[#fa243c] shrink-0" />
+              <span className="text-[#1d1d1f] dark:text-white font-medium">Delete playlist?</span>
+              <button
+                onClick={() => {
+                  onDeletePlaylist(playlistId);
+                  setConfirmDeletePlaylist(false);
+                }}
+                className="font-bold text-[#fa243c] hover:underline"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmDeletePlaylist(false)}
+                className="text-[#6e6e73] dark:text-[#a1a1a6] hover:underline ml-1"
+              >
+                Cancel
+              </button>
             </div>
           )}
         </div>
 
         {/* Search & Sort Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="relative w-full sm:w-56">
-            <Search className="w-4 h-4 text-[#86868b] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[#86868b] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search in playlist..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs bg-black/5 dark:bg-[#242424] border border-black/10 dark:border-white/10 rounded-full pl-9 pr-3.5 py-2 text-[#1d1d1f] dark:text-white placeholder-[#86868b] focus:outline-none focus:border-[#fa243c] transition"
+              className="w-full text-xs bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 rounded-full pl-8 pr-3.5 py-1.5 text-[#1d1d1f] dark:text-white placeholder-[#86868b] focus:outline-none focus:border-[#fa243c] transition"
             />
           </div>
 
           <select
             value={sortBy}
             onChange={(e: any) => setSortBy(e.target.value)}
-            className="text-xs bg-black/5 dark:bg-[#242424] border border-black/10 dark:border-white/10 rounded-full px-3 py-2 text-[#1d1d1f] dark:text-[#b3b3b3] hover:text-black dark:hover:text-white cursor-pointer focus:outline-none"
+            className="text-xs bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 rounded-full px-3 py-1.5 text-[#1d1d1f] dark:text-[#b3b3b3] hover:text-black dark:hover:text-white cursor-pointer focus:outline-none shrink-0"
             title="Sort tracks"
           >
             <option value="default">Default Order</option>
@@ -369,8 +532,8 @@ export const TrackTable: React.FC<TrackTableProps> = ({
         </div>
       </div>
 
-      {/* Genre Pills */}
-      <div className="px-6 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+      {/* Genre Filter Pills */}
+      <div className="px-4 sm:px-6 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
         {genres.map((g) => (
           <button
             key={g}
@@ -382,9 +545,132 @@ export const TrackTable: React.FC<TrackTableProps> = ({
         ))}
       </div>
 
-      {/* Track List Table */}
-      <div className="px-3 sm:px-6 pb-28 md:pb-12 flex-1">
-        {/* Desktop Sticky Table Header */}
+      {/* MOBILE NATIVE TRACK LIST (< 768px): Ultra-lightweight 60fps touch list */}
+      <div className="md:hidden px-2 pt-1 pb-3 space-y-1">
+        {visibleTracks.map((track, idx) => {
+          const isCurrent = currentTrack?.id === track.id;
+          return (
+            <div
+              key={track.id}
+              onClick={() => playTrack(track, filteredAndSorted)}
+              className={`mobile-track-item flex items-center justify-between p-2 rounded-2xl active:scale-[0.99] active:bg-black/5 dark:active:bg-white/10 transition cursor-pointer ${
+                isCurrent ? 'bg-[#fa243c]/[0.08] dark:bg-white/5' : ''
+              }`}
+            >
+              {/* Left: Thumbnail & Animated Equalizer Waves */}
+              <div className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 shadow-xs border border-black/5 dark:border-white/5 bg-slate-100 dark:bg-[#1c1c1e]">
+                <img
+                  src={
+                    track.coverArtUrl ||
+                    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=90&q=80'
+                  }
+                  alt=""
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
+                {isCurrent && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    {isPlaying ? (
+                      <div className="flex items-end gap-0.5 h-3 text-[#fa243c]">
+                        <span className="w-0.5 h-2 bg-white rounded-full eq-bar-1" />
+                        <span className="w-0.5 h-3 bg-white rounded-full eq-bar-2" />
+                        <span className="w-0.5 h-1.5 bg-white rounded-full eq-bar-3" />
+                      </div>
+                    ) : (
+                      <Pause className="w-3.5 h-3.5 fill-white text-white" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Middle: Title & Artist & Badges */}
+              <div className="min-w-0 flex-1 px-3">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`text-sm font-semibold truncate ${
+                      isCurrent ? 'text-[#fa243c] font-bold' : 'text-[#1d1d1f] dark:text-white'
+                    }`}
+                  >
+                    {track.title}
+                  </span>
+                  {(track as any).isEnhancedRecommendation && (
+                    <span className="text-[9px] text-[#fa243c] bg-[#fa243c]/10 border border-[#fa243c]/30 px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                      ✨
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {track.isHiRes ? (
+                    <span className="apple-lossless-badge text-[8px] font-mono px-1 py-0 rounded font-bold shrink-0">
+                      HI-RES
+                    </span>
+                  ) : track.isLossless ? (
+                    <span className="apple-lossless-badge text-[8px] font-mono px-1 py-0 rounded font-bold shrink-0">
+                      LOSSLESS
+                    </span>
+                  ) : null}
+                  <span className="text-xs text-[#86868b] dark:text-[#a1a1a6] truncate">
+                    {track.artist}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Heart & Queue & Duration */}
+              <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={(e) => handleLike(track, e)}
+                  className="p-2 text-[#86868b] hover:text-[#fa243c] active:scale-90 transition"
+                  aria-label={track.isFavorite ? 'Unlike song' : 'Like song'}
+                >
+                  <Heart
+                    className={`w-4 h-4 ${
+                      track.isFavorite ? 'fill-[#fa243c] text-[#fa243c]' : 'text-[#86868b]'
+                    }`}
+                  />
+                </button>
+
+                {/* Download / Save Offline */}
+                <button
+                  onClick={(e) => handleDownloadTrack(track, e)}
+                  className={`p-2 active:scale-90 transition ${
+                    downloadedMap[track.id]
+                      ? 'text-[#1db954]'
+                      : 'text-[#86868b] hover:text-[#fa243c]'
+                  }`}
+                  title={downloadedMap[track.id] ? 'Downloaded offline (Tap to re-download)' : 'Download & Save offline'}
+                  aria-label="Download track"
+                >
+                  {downloadingMap[track.id] ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#fa243c]" />
+                  ) : downloadedMap[track.id] ? (
+                    <Check className="w-4 h-4 text-[#1db954]" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                </button>
+
+                <button
+                  onClick={(e) => handlePlayNext(track, e)}
+                  className="p-2 text-[#86868b] hover:text-[#1d1d1f] dark:hover:text-white active:scale-90 transition"
+                  title="Add to queue"
+                >
+                  {addedTrackId === track.id ? (
+                    <Check className="w-4 h-4 text-[#1db954]" />
+                  ) : (
+                    <ListPlus className="w-4 h-4" />
+                  )}
+                </button>
+                <span className="text-[11px] font-mono text-[#86868b] dark:text-[#a1a1a6] w-8 text-right pr-1">
+                  {formatDuration(track.durationSeconds)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP TABLE VIEW (>= 768px): Pro Audio Workstation Table */}
+      <div className="hidden md:block px-6 pb-12 flex-1">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-black/5 dark:border-white/10 text-[11px] font-semibold text-[#86868b] dark:text-[#b3b3b3] uppercase tracking-wider sticky top-16 bg-white/95 dark:bg-[#121214]/95 backdrop-blur-md z-10">
@@ -586,6 +872,24 @@ export const TrackTable: React.FC<TrackTableProps> = ({
                           )}
                         </button>
                       )}
+
+                      <button
+                        onClick={(e) => handleDownloadTrack(track, e)}
+                        className={`p-1 rounded transition ${
+                          downloadedMap[track.id]
+                            ? 'text-[#1db954]'
+                            : 'text-[#86868b] hover:text-[#fa243c]'
+                        }`}
+                        title={downloadedMap[track.id] ? 'Downloaded offline (Click to re-download)' : 'Download .m4a to device & save offline'}
+                      >
+                        {downloadingMap[track.id] ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#fa243c]" />
+                        ) : downloadedMap[track.id] ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                      </button>
 
                       <button
                         onClick={(e) => handleStartRadio(track, e)}

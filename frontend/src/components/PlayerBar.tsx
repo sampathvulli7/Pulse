@@ -21,8 +21,16 @@ import {
   Sparkles,
   Library,
   Search,
+  Download,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
+import {
+  downloadTrackToDevice,
+  saveTrackOffline,
+  isTrackOffline,
+} from '../utils/offlineStorage';
 
 interface PlayerBarProps {
   onExpandMobileNowPlaying?: () => void;
@@ -74,6 +82,37 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
   const [isScrubbing, setIsScrubbing] = useState(false);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
+
+  const [isCurrentDownloaded, setIsCurrentDownloaded] = useState(false);
+  const [isCurrentDownloading, setIsCurrentDownloading] = useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const checkOffline = async () => {
+      if (!currentTrack) {
+        if (mounted) setIsCurrentDownloaded(false);
+        return;
+      }
+      const isSaved = await isTrackOffline(currentTrack.id);
+      if (mounted) setIsCurrentDownloaded(isSaved);
+    };
+    checkOffline();
+    window.addEventListener('offline-tracks-updated', checkOffline);
+    return () => {
+      mounted = false;
+      window.removeEventListener('offline-tracks-updated', checkOffline);
+    };
+  }, [currentTrack]);
+
+  const handleDownloadCurrentTrack = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentTrack) return;
+    setIsCurrentDownloading(true);
+    downloadTrackToDevice(currentTrack);
+    await saveTrackOffline(currentTrack);
+    setIsCurrentDownloading(false);
+    setIsCurrentDownloaded(true);
+  };
 
   const formatTime = (sec: number) => {
     if (!sec || isNaN(sec)) return '0:00';
@@ -176,6 +215,25 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
                       : 'text-[#86868b] hover:text-[#fa243c]'
                   }`}
                 />
+              </button>
+
+              <button
+                onClick={handleDownloadCurrentTrack}
+                disabled={isCurrentDownloading}
+                className={`p-1.5 transition shrink-0 ${
+                  isCurrentDownloaded
+                    ? 'text-[#1db954]'
+                    : 'text-[#86868b] hover:text-[#fa243c]'
+                }`}
+                title={isCurrentDownloaded ? 'Downloaded offline (Click to re-download)' : 'Download .m4a to device & save offline'}
+              >
+                {isCurrentDownloading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#fa243c]" />
+                ) : isCurrentDownloaded ? (
+                  <Check className="w-4 h-4 text-[#1db954]" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
               </button>
             </>
           ) : (
@@ -343,7 +401,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
 
           {/* Theme Toggle (Light / Dark) */}
           <button
-            onClick={toggleTheme}
+            onClick={(e) => toggleTheme(e)}
             className="p-1.5 rounded-lg text-[#6e6e73] hover:text-[#1d1d1f] dark:text-[#a1a1a6] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition"
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Theme`}
           >
@@ -437,109 +495,133 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
         </div>
       </footer>
 
-      {/* Mobile Cupertino Floating Mini-Player & Bottom Navigation Dock (< 768px) */}
-      <div className="md:hidden flex flex-col z-50 shrink-0 select-none bg-white/90 dark:bg-[#121214]/90 backdrop-blur-2xl border-t border-black/10 dark:border-white/10 transition-colors">
-        {/* Continuous Progress Indicator Line */}
-        <div className="w-full h-1 bg-black/10 dark:bg-white/10 overflow-hidden relative">
+      {/* Mobile Floating Island Mini-Player & Cupertino Bottom Navigation Dock (< 768px) */}
+      <div className="md:hidden flex flex-col z-50 shrink-0 select-none bg-transparent">
+        {/* Floating Capsule Mini Player */}
+        <div className="px-2.5 pt-1 pb-1.5 bg-transparent">
           <div
-            className="h-full bg-[#fa243c] transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-
-        {/* Floating Mini Player Card */}
-        <div
-          id="mobile-mini-player"
-          data-testid="mobile-mini-player"
-          onClick={onExpandMobileNowPlaying}
-          className="flex items-center justify-between px-3 py-2 cursor-pointer active:bg-black/5 dark:active:bg-white/5 transition"
-        >
-          {/* Cover Art + Title + Quality Badge */}
-          <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-            <div className="relative shrink-0">
-              <img
-                src={
-                  currentTrack?.coverArtUrl ||
-                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'
-                }
-                alt=""
-                className="w-11 h-11 rounded-xl object-cover shadow-sm border border-black/5 dark:border-white/5"
+            id="mobile-mini-player"
+            data-testid="mobile-mini-player"
+            onClick={onExpandMobileNowPlaying}
+            className="relative w-full h-[58px] rounded-2xl bg-white/95 dark:bg-[#1c1c1f]/95 backdrop-blur-2xl shadow-xl shadow-black/10 dark:shadow-black/50 border border-black/10 dark:border-white/10 flex items-center justify-between px-3 overflow-hidden cursor-pointer active:scale-[0.99] transition-all"
+          >
+            {/* Embedded Progress Hairline at the very bottom edge of the capsule */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-black/5 dark:bg-white/10">
+              <div
+                className="h-full bg-gradient-to-r from-[#fa243c] to-[#fc3c44] transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
               />
-              {isPlaying && (
-                <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center pointer-events-none">
-                  <div className="flex items-end gap-0.5 h-3">
-                    <span className="w-0.5 h-2 bg-white rounded-full animate-pulse" />
-                    <span className="w-0.5 h-3 bg-white rounded-full animate-pulse delay-75" />
-                    <span className="w-0.5 h-1.5 bg-white rounded-full animate-pulse delay-150" />
-                  </div>
-                </div>
-              )}
             </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-[#1d1d1f] dark:text-white truncate">
-                  {currentTrack ? currentTrack.title : "Sampath's Studio"}
-                </span>
-                {currentTrack && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsAudioQualityModalOpen(true);
-                    }}
-                    className="apple-lossless-badge text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-black/5 dark:bg-white/10 text-[#86868b] dark:text-[#a1a1a6] border border-black/10 dark:border-white/15 shrink-0"
-                  >
-                    {currentTrack.isHiRes ? 'HI-RES' : currentTrack.isLossless ? 'LOSSLESS' : 'AAC'}
-                  </button>
+            {/* Cover Art + Title + Quality Badge */}
+            <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+              <div className="relative shrink-0">
+                <img
+                  src={
+                    currentTrack?.coverArtUrl ||
+                    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'
+                  }
+                  alt=""
+                  className="w-10 h-10 rounded-xl object-cover shadow-xs border border-black/5 dark:border-white/5"
+                />
+                {isPlaying && (
+                  <div className="absolute inset-0 bg-black/25 rounded-xl flex items-center justify-center pointer-events-none">
+                    <div className="flex items-end gap-0.5 h-2.5">
+                      <span className="w-0.5 h-2 bg-white rounded-full animate-pulse" />
+                      <span className="w-0.5 h-2.5 bg-white rounded-full animate-pulse delay-75" />
+                      <span className="w-0.5 h-1.5 bg-white rounded-full animate-pulse delay-150" />
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="text-[11px] text-[#86868b] dark:text-[#a1a1a6] truncate">
-                {currentTrack ? currentTrack.artist : 'Select a track to play'}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-[#1d1d1f] dark:text-white truncate">
+                    {currentTrack ? currentTrack.title : "Sampath's Studio"}
+                  </span>
+                  {currentTrack && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAudioQualityModalOpen(true);
+                      }}
+                      className="apple-lossless-badge text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-black/5 dark:bg-white/10 text-[#86868b] dark:text-[#a1a1a6] border border-black/10 dark:border-white/15 shrink-0"
+                    >
+                      {currentTrack.isHiRes ? 'HI-RES' : currentTrack.isLossless ? 'LOSSLESS' : 'AAC'}
+                    </button>
+                  )}
+                </div>
+                <div className="text-[11px] text-[#86868b] dark:text-[#a1a1a6] truncate">
+                  {currentTrack ? currentTrack.artist : 'Select a track to play'}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Quick Transport Controls */}
-          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-            {currentTrack && (
-              <button
-                onClick={toggleCurrentTrackLike}
-                className="p-2 text-[#86868b] hover:text-[#fa243c] active:scale-95 transition"
-                aria-label={currentTrack.isFavorite ? 'Unlike' : 'Like'}
-              >
-                <Heart
-                  className={`w-4 h-4 ${
-                    currentTrack.isFavorite ? 'fill-[#fa243c] text-[#fa243c]' : ''
-                  }`}
-                />
-              </button>
-            )}
-            <button
-              onClick={togglePlay}
-              disabled={!currentTrack}
-              className="w-9 h-9 rounded-full bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] flex items-center justify-center active:scale-90 transition shadow-sm"
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
-              ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
+            {/* Quick Transport Controls */}
+            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+              {currentTrack && (
+                <>
+                  <button
+                    onClick={toggleCurrentTrackLike}
+                    className="p-2 text-[#86868b] hover:text-[#fa243c] active:scale-90 transition"
+                    aria-label={currentTrack.isFavorite ? 'Unlike' : 'Like'}
+                  >
+                    <Heart
+                      className={`w-4 h-4 ${
+                        currentTrack.isFavorite ? 'fill-[#fa243c] text-[#fa243c]' : ''
+                      }`}
+                    />
+                  </button>
+
+                  <button
+                    onClick={handleDownloadCurrentTrack}
+                    disabled={isCurrentDownloading}
+                    className={`p-2 active:scale-90 transition ${
+                      isCurrentDownloaded
+                        ? 'text-[#1db954]'
+                        : 'text-[#86868b] hover:text-[#fa243c]'
+                    }`}
+                    title={isCurrentDownloaded ? 'Downloaded offline (Tap to re-download)' : 'Download & save offline'}
+                    aria-label="Download track"
+                  >
+                    {isCurrentDownloading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-[#fa243c]" />
+                    ) : isCurrentDownloaded ? (
+                      <Check className="w-4 h-4 text-[#1db954]" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                  </button>
+                </>
               )}
-            </button>
-            <button
-              onClick={() => nextTrack()}
-              disabled={!currentTrack}
-              className="p-2 text-[#1d1d1f] dark:text-white hover:opacity-75 active:scale-95 transition"
-              aria-label="Next track"
-            >
-              <SkipForward className="w-5 h-5 fill-current" />
-            </button>
+              <button
+                onClick={togglePlay}
+                disabled={!currentTrack}
+                className="w-9 h-9 rounded-full bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] flex items-center justify-center active:scale-90 transition shadow-sm"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4 fill-current" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                )}
+              </button>
+              <button
+                onClick={() => nextTrack()}
+                disabled={!currentTrack}
+                className="p-2 text-[#1d1d1f] dark:text-white hover:opacity-75 active:scale-90 transition"
+                aria-label="Next track"
+              >
+                <SkipForward className="w-5 h-5 fill-current" />
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Apple Music Cupertino 4-Tab Bottom Navigation Bar */}
         <nav
-          className="flex items-center justify-around border-t border-black/5 dark:border-white/5 py-1.5 px-2 pb-safe bg-white/95 dark:bg-[#121214]/95"
+          className="flex items-center justify-around border-t border-black/5 dark:border-white/5 py-1 px-2 pb-safe bg-white/95 dark:bg-[#121214]/95 backdrop-blur-xl"
           aria-label="Mobile Navigation"
         >
           {/* Tab 1: Library */}
