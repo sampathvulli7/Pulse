@@ -296,7 +296,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
 
   return (
     <div
-      className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-white/75 dark:bg-[#121214]/75 md:bg-white/80 md:dark:bg-[#121214]/80 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white transition-colors animate-in fade-in duration-200"
+      className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-transparent select-none text-[#1d1d1f] dark:text-white transition-colors animate-in fade-in duration-200"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Toast Notification */}
@@ -307,7 +307,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
       )}
 
       {/* Sticky Top Header with Ambient Frosted Styling */}
-      <header className="sticky top-0 z-20 px-4 sm:px-8 pt-5 pb-4 bg-white/80 dark:bg-[#121214]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 space-y-3.5">
+      <header className="sticky top-0 z-20 px-4 sm:px-8 pt-5 pb-4 bg-white/60 dark:bg-[#121214]/70 backdrop-blur-xl border-b border-black/5 dark:border-white/5 space-y-3.5">
         <div className="flex items-center gap-3">
           <button
             onClick={onBackToLibrary}

@@ -160,7 +160,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   return (
     <>
       {/* Desktop Apple Music + Spotify Hybrid 92px Player Bar */}
-      <footer className="spotify-now-playing-bar hidden md:flex items-center justify-between w-full h-[92px] bg-white/80 dark:bg-[#121214]/90 backdrop-blur-2xl px-5 text-[#1d1d1f] dark:text-white z-50 select-none border-t border-black/5 dark:border-white/5 transition-colors">
+      <footer className="spotify-now-playing-bar hidden md:flex items-center justify-between w-full h-[92px] bg-white/60 dark:bg-[#121214]/70 backdrop-blur-2xl px-5 text-[#1d1d1f] dark:text-white z-50 select-none border-t border-black/5 dark:border-white/5 transition-colors">
         {/* SEGMENT 1: LEFT (30%, min-width 200px) - Now Playing Widget */}
         <div className="flex items-center gap-3.5 w-[30%] min-w-[200px] max-w-[420px]">
           {currentTrack ? (

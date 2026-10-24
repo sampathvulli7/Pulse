@@ -5,23 +5,24 @@
 
 :root {
   /* Apple Music + Spotify Hybrid Workstation — Luminous Light Theme */
-  --ambient-grad-base: #f4f5f9;
-  --ambient-grad-1: rgba(224, 230, 252, 0.45); /* soft pale periwinkle */
-  --ambient-grad-2: rgba(252, 235, 240, 0.38); /* delicate rosewater whisper */
-  --ambient-grad-3: rgba(230, 242, 250, 0.42); /* soft mist sky */
-  --ambient-grad-4: rgba(244, 235, 252, 0.38); /* quiet twilight lilac */
-  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(244, 245, 249, 0.15) 0%, rgba(244, 245, 249, 0.65) 100%);
+  --ambient-grad-base: #eef2f7;
+  --ambient-grad-1: rgba(251, 113, 133, 0.38); /* vivid soft rose/coral */
+  --ambient-grad-2: rgba(56, 189, 248, 0.38);  /* luminous ocean sky blue */
+  --ambient-grad-3: rgba(168, 85, 247, 0.35);  /* luminous amethyst violet */
+  --ambient-grad-4: rgba(251, 191, 36, 0.32);  /* soft warm golden sunset */
+  --ambient-grad-5: rgba(45, 212, 191, 0.32);  /* soft tropical cyan/teal */
+  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.05) 0%, rgba(238, 242, 247, 0.35) 100%);
 
-  --background-canvas: #f4f5f9;
-  --background-base: rgba(255, 255, 255, 0.80);
+  --background-canvas: #eef2f7;
+  --background-base: rgba(255, 255, 255, 0.58);
   --background-highlight: #f8f8fa;
   --background-press: #e5e5ea;
   --background-elevated-base: #ffffff;
   --background-elevated-highlight: #f0f0f4;
   --background-tinted-base: rgba(0, 0, 0, 0.04);
   --background-tinted-highlight: rgba(0, 0, 0, 0.08);
-  --background-glass: rgba(255, 255, 255, 0.75);
-  --background-glass-elevated: rgba(255, 255, 255, 0.92);
+  --background-glass: rgba(255, 255, 255, 0.60);
+  --background-glass-elevated: rgba(255, 255, 255, 0.85);
 
   --border-subtle: rgba(0, 0, 0, 0.08);
   --border-glass: rgba(0, 0, 0, 0.06);
@@ -52,23 +53,24 @@
 /* Dark Mode Overrides (True Obsidian Black & Dark Glassmorphism) */
 .dark, [data-theme="dark"], html.dark, body.dark {
   color-scheme: dark;
-  --ambient-grad-base: #09090b;
-  --ambient-grad-1: rgba(36, 28, 58, 0.32); /* muted obsidian plum / twilight */
-  --ambient-grad-2: rgba(48, 22, 38, 0.24); /* very soft dusky ruby whisper */
-  --ambient-grad-3: rgba(18, 38, 54, 0.28); /* quiet midnight slate / ocean teal */
-  --ambient-grad-4: rgba(26, 22, 44, 0.28); /* deep calm indigo */
-  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(9, 9, 11, 0.25) 0%, rgba(9, 9, 11, 0.80) 100%);
+  --ambient-grad-base: #070709;
+  --ambient-grad-1: rgba(225, 29, 72, 0.38);   /* deep Apple crimson glow */
+  --ambient-grad-2: rgba(99, 102, 241, 0.40);  /* deep indigo/sapphire aurora */
+  --ambient-grad-3: rgba(14, 165, 233, 0.35);  /* vibrant cyan light beam */
+  --ambient-grad-4: rgba(168, 85, 247, 0.38);  /* deep cosmic violet */
+  --ambient-grad-5: rgba(236, 72, 153, 0.32);  /* rich magenta bloom */
+  --ambient-grad-overlay: radial-gradient(ellipse at 50% 50%, rgba(7, 7, 9, 0.1) 0%, rgba(7, 7, 9, 0.55) 100%);
 
-  --background-canvas: #09090b;
-  --background-base: rgba(18, 18, 22, 0.80);
+  --background-canvas: #070709;
+  --background-base: rgba(14, 14, 18, 0.65);
   --background-highlight: #18181a;
   --background-press: #000000;
   --background-elevated-base: #18181a;
   --background-elevated-highlight: #28282e;
   --background-tinted-base: hsla(0, 0%, 100%, 0.07);
   --background-tinted-highlight: hsla(0, 0%, 100%, 0.12);
-  --background-glass: rgba(18, 18, 20, 0.85);
-  --background-glass-elevated: rgba(28, 28, 32, 0.95);
+  --background-glass: rgba(18, 18, 20, 0.70);
+  --background-glass-elevated: rgba(28, 28, 32, 0.85);
 
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-glass: rgba(255, 255, 255, 0.06);
@@ -549,24 +551,47 @@ html.theme-transitioning *::after {
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Fluid animated base underglow spanning entire canvas */
+.ambient-gradient-canvas::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle at 15% 25%, var(--ambient-grad-1) 0%, transparent 45%),
+              radial-gradient(circle at 85% 15%, var(--ambient-grad-2) 0%, transparent 45%),
+              radial-gradient(circle at 50% 80%, var(--ambient-grad-3) 0%, transparent 50%),
+              radial-gradient(circle at 80% 75%, var(--ambient-grad-4) 0%, transparent 45%),
+              radial-gradient(circle at 20% 75%, var(--ambient-grad-5) 0%, transparent 45%);
+  filter: blur(50px);
+  -webkit-filter: blur(50px);
+  opacity: 0.85;
+  animation: ambientUnderglow 18s ease-in-out infinite alternate;
+}
+
+@keyframes ambientUnderglow {
+  0% { transform: scale(1) rotate(0deg); opacity: 0.75; }
+  50% { transform: scale(1.05) rotate(1.5deg); opacity: 0.90; }
+  100% { transform: scale(0.98) rotate(-1.5deg); opacity: 0.80; }
+}
+
 .ambient-gradient-mesh {
   position: absolute;
-  inset: -30%;
-  width: 160%;
-  height: 160%;
-  filter: blur(80px);
-  -webkit-filter: blur(80px);
+  inset: -25%;
+  width: 150%;
+  height: 150%;
+  filter: blur(55px);
+  -webkit-filter: blur(55px);
   opacity: 0.95;
   transform: translate3d(0, 0, 0);
   will-change: transform;
-  animation: smoothAmbientFlow 26s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  animation: smoothAmbientFlow 22s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
 }
 
 @media (max-width: 768px) {
   .ambient-gradient-mesh {
-    /* 45px blur on mobile ensures featherweight GPU load and 60fps scrolling */
-    filter: blur(45px);
-    -webkit-filter: blur(45px);
+    filter: blur(40px);
+    -webkit-filter: blur(40px);
   }
 }
 
@@ -577,47 +602,58 @@ html.theme-transitioning *::after {
 }
 
 .ambient-orb-1 {
-  top: 8%;
-  left: 8%;
-  width: 60vw;
-  height: 60vw;
-  max-width: 800px;
-  max-height: 800px;
-  background: radial-gradient(circle, var(--ambient-grad-1) 0%, transparent 68%);
-  animation: orbFloat1 28s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
-}
-
-.ambient-orb-2 {
-  top: 6%;
-  right: 10%;
-  width: 65vw;
-  height: 65vw;
-  max-width: 850px;
-  max-height: 850px;
-  background: radial-gradient(circle, var(--ambient-grad-2) 0%, transparent 68%);
-  animation: orbFloat2 32s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
-}
-
-.ambient-orb-3 {
-  bottom: 10%;
-  left: 18%;
-  width: 68vw;
-  height: 68vw;
-  max-width: 900px;
-  max-height: 900px;
-  background: radial-gradient(circle, var(--ambient-grad-3) 0%, transparent 68%);
-  animation: orbFloat3 36s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
-}
-
-.ambient-orb-4 {
-  bottom: 8%;
-  right: 15%;
+  top: 5%;
+  left: 5%;
   width: 55vw;
   height: 55vw;
   max-width: 750px;
   max-height: 750px;
-  background: radial-gradient(circle, var(--ambient-grad-4) 0%, transparent 68%);
-  animation: orbFloat4 30s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  background: radial-gradient(circle, var(--ambient-grad-1) 0%, transparent 70%);
+  animation: orbFloat1 24s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-2 {
+  top: 5%;
+  right: 8%;
+  width: 60vw;
+  height: 60vw;
+  max-width: 800px;
+  max-height: 800px;
+  background: radial-gradient(circle, var(--ambient-grad-2) 0%, transparent 70%);
+  animation: orbFloat2 28s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-3 {
+  bottom: 8%;
+  left: 15%;
+  width: 65vw;
+  height: 65vw;
+  max-width: 850px;
+  max-height: 850px;
+  background: radial-gradient(circle, var(--ambient-grad-3) 0%, transparent 70%);
+  animation: orbFloat3 32s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-4 {
+  bottom: 5%;
+  right: 10%;
+  width: 52vw;
+  height: 52vw;
+  max-width: 700px;
+  max-height: 700px;
+  background: radial-gradient(circle, var(--ambient-grad-4) 0%, transparent 70%);
+  animation: orbFloat4 26s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+.ambient-orb-5 {
+  top: 35%;
+  left: 40%;
+  width: 48vw;
+  height: 48vw;
+  max-width: 650px;
+  max-height: 650px;
+  background: radial-gradient(circle, var(--ambient-grad-5) 0%, transparent 70%);
+  animation: orbFloat5 30s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
 }
 
 @keyframes smoothAmbientFlow {
@@ -625,35 +661,41 @@ html.theme-transitioning *::after {
     transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
   }
   50% {
-    transform: translate3d(-2.5%, 2%, 0) scale(1.03) rotate(2deg);
+    transform: translate3d(-3%, 2.5%, 0) scale(1.04) rotate(2.5deg);
   }
   100% {
-    transform: translate3d(2.5%, -2%, 0) scale(0.98) rotate(-2deg);
+    transform: translate3d(3%, -2.5%, 0) scale(0.97) rotate(-2.5deg);
   }
 }
 
 @keyframes orbFloat1 {
   0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(4vw, 5vh, 0) scale(1.06); }
-  100% { transform: translate3d(-3vw, 2vh, 0) scale(0.96); }
+  50% { transform: translate3d(5vw, 6vh, 0) scale(1.08); }
+  100% { transform: translate3d(-4vw, 3vh, 0) scale(0.94); }
 }
 
 @keyframes orbFloat2 {
   0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-5vw, 4vh, 0) scale(0.94); }
-  100% { transform: translate3d(3vw, -4vh, 0) scale(1.05); }
+  50% { transform: translate3d(-6vw, 5vh, 0) scale(0.92); }
+  100% { transform: translate3d(4vw, -5vh, 0) scale(1.06); }
 }
 
 @keyframes orbFloat3 {
   0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(3vw, -5vh, 0) scale(1.04); }
-  100% { transform: translate3d(-4vw, 3vh, 0) scale(0.95); }
+  50% { transform: translate3d(4vw, -6vh, 0) scale(1.06); }
+  100% { transform: translate3d(-5vw, 4vh, 0) scale(0.93); }
 }
 
 @keyframes orbFloat4 {
   0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-4vw, -4vh, 0) scale(1.05); }
-  100% { transform: translate3d(5vw, 3vh, 0) scale(0.94); }
+  50% { transform: translate3d(-5vw, -5vh, 0) scale(1.07); }
+  100% { transform: translate3d(6vw, 4vh, 0) scale(0.92); }
+}
+
+@keyframes orbFloat5 {
+  0% { transform: translate3d(0, 0, 0) scale(0.95); }
+  50% { transform: translate3d(4vw, -3vh, 0) scale(1.06); }
+  100% { transform: translate3d(-3vw, 5vh, 0) scale(0.92); }
 }
 
 /* Subtle center vignette layer to keep central readability crisp */
@@ -667,6 +709,7 @@ html.theme-transitioning *::after {
 
 @media (prefers-reduced-motion: reduce) {
   .ambient-gradient-mesh,
+  .ambient-gradient-canvas::before,
   .ambient-orb {
     animation: none !important;
   }

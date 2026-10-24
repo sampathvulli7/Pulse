@@ -310,7 +310,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({
   return (
     <div
       onScroll={handleScroll}
-      className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-white/75 dark:bg-[#121214]/75 md:bg-white/80 md:dark:bg-[#121214]/80 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white transition-colors"
+      className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-transparent select-none text-[#1d1d1f] dark:text-white transition-colors"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Toast Notification Banner for Downloads & Offline Saving */}
@@ -321,7 +321,7 @@ export const TrackTable: React.FC<TrackTableProps> = ({
       )}
 
       {/* Apple Music + Spotify Hybrid Playlist Hero Header */}
-      <div className="relative p-3.5 sm:p-8 bg-gradient-to-b from-slate-200/40 via-white/10 to-transparent dark:from-[#252528]/35 dark:to-transparent flex flex-row sm:flex-row items-center sm:items-end gap-3.5 sm:gap-6 shrink-0 border-b border-black/5 dark:border-white/5">
+      <div className="relative p-3.5 sm:p-8 bg-gradient-to-b from-white/20 via-transparent to-transparent dark:from-white/5 dark:to-transparent flex flex-row sm:flex-row items-center sm:items-end gap-3.5 sm:gap-6 shrink-0 border-b border-black/5 dark:border-white/5">
         {/* Hero Artwork */}
         <div className="w-20 h-20 sm:w-44 sm:h-44 md:w-52 md:h-52 rounded-xl sm:rounded-2xl shadow-md sm:shadow-2xl overflow-hidden bg-slate-200 dark:bg-[#181818] shrink-0 border border-black/10 dark:border-white/10 flex items-center justify-center hardware-accelerated">
           {tracks.length > 0 && tracks[0].coverArtUrl ? (

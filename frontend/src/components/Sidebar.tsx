@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       <aside
-        className={`spotify-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/85 dark:bg-[#121214]/90 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white border border-black/5 dark:border-white/5 transition-all duration-150 relative ${
+        className={`spotify-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/55 dark:bg-[#121214]/65 backdrop-blur-2xl select-none text-[#1d1d1f] dark:text-white border border-black/5 dark:border-white/5 transition-all duration-150 relative ${
           isCollapsed ? 'w-[72px]' : ''
         }`}
       style={{ width: isCollapsed ? '72px' : `${leftRailWidth}px` }}

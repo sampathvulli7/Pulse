@@ -351,6 +351,7 @@ export function App() {
           <div className="ambient-orb ambient-orb-2" />
           <div className="ambient-orb ambient-orb-3" />
           <div className="ambient-orb ambient-orb-4" />
+          <div className="ambient-orb ambient-orb-5" />
         </div>
         <div className="ambient-gradient-vignette" />
       </div>
