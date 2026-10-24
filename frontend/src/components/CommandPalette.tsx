@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Play, Sliders, Mic2, ListMusic, Shuffle, Sparkles, X } from 'lucide-react';
+import { Search, Play, Sliders, Mic2, ListMusic, Shuffle, Sparkles, X, HardDrive } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
 import { Track } from '../types/audio';
 
@@ -12,6 +12,7 @@ interface CommandPaletteProps {
   onOpenQueue: () => void;
   onOpenSmartModal: () => void;
   onOpenSpotifySearch: () => void;
+  onOpenStorage?: () => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -23,9 +24,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenQueue,
   onOpenSmartModal,
   onOpenSpotifySearch,
+  onOpenStorage,
 }) => {
   const [query, setQuery] = useState('');
-  const { playTrack, togglePlay, nextTrack, prevTrack, setShuffleMode, shuffleMode } = usePlayerStore();
+  const {
+    playTrack,
+    togglePlay,
+    nextTrack,
+    prevTrack,
+    setShuffleMode,
+    shuffleMode,
+    toggleTheme,
+    theme,
+    setIsAudioQualityModalOpen,
+    setIsFullScreenSingOpen,
+  } = usePlayerStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,6 +67,34 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     : [];
 
   const actions = [
+    {
+      id: 'act-storage',
+      icon: HardDrive,
+      title: 'Manage Storage & Audio Disk Cache',
+      shortcut: '⌘M',
+      run: () => onOpenStorage?.(),
+    },
+    {
+      id: 'act-lossless',
+      icon: Sparkles,
+      title: 'Configure Lossless & Hi-Res Audio Quality',
+      shortcut: '⌘Q',
+      run: () => setIsAudioQualityModalOpen(true),
+    },
+    {
+      id: 'act-sing',
+      icon: Mic2,
+      title: 'Launch Apple Music Sing (Full-Screen Karaoke)',
+      shortcut: '⌘K',
+      run: () => setIsFullScreenSingOpen(true),
+    },
+    {
+      id: 'act-theme',
+      icon: Sparkles,
+      title: `Switch to ${theme === 'light' ? 'Dark Mode' : 'Luminous Light Mode'}`,
+      shortcut: '⌘T',
+      run: () => toggleTheme(),
+    },
     {
       id: 'act-spotify-search',
       icon: Search,
@@ -96,7 +137,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     {
       id: 'act-eq',
       icon: Sliders,
-      title: 'Open Equalizer',
+      title: 'Open 10-Band Equalizer',
       shortcut: 'E',
       run: () => onOpenEQ(),
     },
@@ -128,8 +169,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     : actions;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm animate-in fade-in duration-100">
-      <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/40 backdrop-blur-md animate-in fade-in duration-100">
+      <div className="w-full max-w-xl bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-black/10 dark:border-white/10 overflow-hidden transition-colors">
         {/* Search Input */}
         <div className="flex items-center px-4 py-3 border-b border-slate-200 dark:border-slate-800 gap-3">
           <Search className="w-4 h-4 text-slate-400" />

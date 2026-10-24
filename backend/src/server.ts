@@ -21,6 +21,11 @@ import {
 } from './services/spotify';
 import { db } from './db/database';
 
+import { recommendationRouter } from './routes/recommendations';
+import { mixRouter } from './routes/mixes';
+import { userStatsRouter } from './routes/userStats';
+import { cacheRouter } from './routes/cache';
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -37,6 +42,10 @@ app.use('/api/tracks', trackRouter);
 app.use('/api/playlists', playlistRouter);
 app.use('/api/queue-snapshots', snapshotRouter);
 app.use('/api/eq-presets', presetRouter);
+app.use('/api/mixes', mixRouter);
+app.use('/api/cache', cacheRouter);
+app.use('/api', recommendationRouter);
+app.use('/api', userStatsRouter);
 
 // Audio & Image Streaming (HTTP 206 Partial Content + Full CORS + Image Fallback)
 app.get('/api/stream/proxy', handleStreamProxy);
@@ -219,7 +228,7 @@ app.post('/api/spotify/resolve-track', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', name: 'Pulse Music Workstation API', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', name: "Sampath's Studio API", timestamp: new Date().toISOString() });
 });
 
 // Error handling middleware

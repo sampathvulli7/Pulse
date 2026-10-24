@@ -18,6 +18,7 @@ export const SpotifySearchModal: React.FC<SpotifySearchModalProps> = ({
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [results, setResults] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [queuedId, setQueuedId] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export const SpotifySearchModal: React.FC<SpotifySearchModalProps> = ({
   useEffect(() => {
     if (!query.trim()) {
       setResults([]);
+      setSuggestions(null);
       return;
     }
 
@@ -40,10 +42,18 @@ export const SpotifySearchModal: React.FC<SpotifySearchModalProps> = ({
   const fetchResults = async (q: string, filter: SourceFilter) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(q)}&source=${filter}`);
-      if (res.ok) {
-        const data = await res.json();
+      const [searchRes, suggRes] = await Promise.allSettled([
+        fetch(`/api/spotify/search?q=${encodeURIComponent(q)}&source=${filter}`),
+        fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}`),
+      ]);
+
+      if (searchRes.status === 'fulfilled' && searchRes.value.ok) {
+        const data = await searchRes.value.json();
         setResults(data || []);
+      }
+      if (suggRes.status === 'fulfilled' && suggRes.value.ok) {
+        const suggData = await suggRes.value.json();
+        setSuggestions(suggData);
       }
     } catch (e) {
       console.warn('Search failed:', e);
@@ -219,7 +229,46 @@ export const SpotifySearchModal: React.FC<SpotifySearchModalProps> = ({
               )}
             </div>
           ) : (
-            results.map((t) => {
+            <>
+              {suggestions?.topResult && (
+                <div
+                  className="mb-3 p-3.5 rounded-xl bg-slate-100/70 dark:bg-[#181818] border border-slate-200/80 dark:border-white/5 flex items-center justify-between group hover:bg-slate-200/60 dark:hover:bg-[#282828] transition cursor-pointer"
+                  onClick={() => handlePlayNow(suggestions.topResult)}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <img
+                      src={
+                        suggestions.topResult.coverArtUrl ||
+                        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&q=80'
+                      }
+                      alt=""
+                      className="w-14 h-14 rounded-lg object-cover shadow shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[#1ed760] block">
+                        Top Result
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {suggestions.topResult.title}
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-[#b3b3b3] truncate mt-0.5">
+                        {suggestions.topResult.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlayNow(suggestions.topResult);
+                    }}
+                    className="w-9 h-9 rounded-full bg-[#1ed760] text-black flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition shrink-0 ml-2"
+                    title="Play Top Result"
+                  >
+                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                  </button>
+                </div>
+              )}
+              {results.map((t) => {
               const isResolving = resolvingId === t.id;
               const isQueued = queuedId === t.id;
               const durationFormatted = `${Math.floor((t.durationSeconds || 180) / 60)}:${(
@@ -307,7 +356,8 @@ export const SpotifySearchModal: React.FC<SpotifySearchModalProps> = ({
                   </div>
                 </div>
               );
-            })
+            })}
+            </>
           )}
         </div>
       </div>

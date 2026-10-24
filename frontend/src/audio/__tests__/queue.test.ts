@@ -140,4 +140,55 @@ describe('Dual-Layer Queue State Engine', () => {
     expect(usePlayerStore.getState().currentTrack?.id).toBe('t4');
     expect(usePlayerStore.getState().isPlaying).toBe(true);
   });
+
+  it('assigns unique uids to duplicate tracks in Priority Queue and removes by uid', () => {
+    const t1 = mockTrack('song-1');
+    usePlayerStore.setState({ priorityQueue: [] });
+
+    // Add same song twice
+    usePlayerStore.getState().addToPriorityQueue(t1);
+    usePlayerStore.getState().addToPriorityQueue(t1);
+
+    const pq = usePlayerStore.getState().priorityQueue;
+    expect(pq.length).toBe(2);
+    expect(pq[0].id).toBe('song-1');
+    expect(pq[1].id).toBe('song-1');
+    // UIDs must be distinct to prevent React key and removal collisions
+    expect(pq[0].uid).toBeDefined();
+    expect(pq[1].uid).toBeDefined();
+    expect(pq[0].uid).not.toBe(pq[1].uid);
+
+    // Remove only the first item by its uid
+    const firstUid = pq[0].uid!;
+    usePlayerStore.getState().removeFromPriorityQueueByUid(firstUid);
+
+    const remaining = usePlayerStore.getState().priorityQueue;
+    expect(remaining.length).toBe(1);
+    expect(remaining[0].uid).toBe(pq[1].uid);
+  });
+
+  it('handles Spotify xpui layout state toggles and docking', () => {
+    // Initial state check
+    expect(usePlayerStore.getState().rightPanelTab).toBe('queue');
+
+    // Toggle same tab -> closes to null
+    usePlayerStore.getState().toggleRightPanelTab('queue');
+    expect(usePlayerStore.getState().rightPanelTab).toBeNull();
+
+    // Toggle 'eq' -> opens 'eq'
+    usePlayerStore.getState().toggleRightPanelTab('eq');
+    expect(usePlayerStore.getState().rightPanelTab).toBe('eq');
+
+    // Toggle 'lyrics' -> switches to 'lyrics'
+    usePlayerStore.getState().setRightPanelTab('lyrics');
+    expect(usePlayerStore.getState().rightPanelTab).toBe('lyrics');
+
+    // Left rail mode toggle
+    usePlayerStore.setState({ leftRailMode: 'expanded' });
+    usePlayerStore.getState().toggleLeftRailMode();
+    expect(usePlayerStore.getState().leftRailMode).toBe('collapsed');
+    usePlayerStore.getState().toggleLeftRailMode();
+    expect(usePlayerStore.getState().leftRailMode).toBe('expanded');
+  });
 });
+

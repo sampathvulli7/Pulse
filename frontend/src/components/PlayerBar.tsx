@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Play,
   Pause,
@@ -6,35 +6,36 @@ import {
   SkipForward,
   Shuffle,
   Repeat,
+  Repeat1,
   Volume2,
   VolumeX,
   Sliders,
   ListMusic,
   Mic2,
-  Repeat1,
   Bookmark,
   Heart,
+  Disc3,
+  Maximize2,
+  Sun,
+  Moon,
+  Sparkles,
+  Library,
+  Search,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
 
 interface PlayerBarProps {
-  onToggleEQ: () => void;
-  onToggleQueue: () => void;
-  onToggleLyrics: () => void;
-  isEQOpen: boolean;
-  isQueueOpen: boolean;
-  isLyricsOpen: boolean;
   onExpandMobileNowPlaying?: () => void;
+  onOpenMobileLibrary?: () => void;
+  onOpenMobileSearch?: () => void;
+  activeView?: 'library' | 'search';
 }
 
 export const PlayerBar: React.FC<PlayerBarProps> = ({
-  onToggleEQ,
-  onToggleQueue,
-  onToggleLyrics,
-  isEQOpen,
-  isQueueOpen,
-  isLyricsOpen,
   onExpandMobileNowPlaying,
+  onOpenMobileLibrary,
+  onOpenMobileSearch,
+  activeView = 'library',
 }) => {
   const {
     currentTrack,
@@ -47,7 +48,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     shuffleMode,
     repeatMode,
     abLoop,
-    activePresetName,
+    rightPanelTab,
+    toggleRightPanelTab,
     priorityQueue,
     contextQueue,
     togglePlay,
@@ -62,18 +64,22 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     setABLoop,
     clearABLoop,
     toggleCurrentTrackLike,
+    theme,
+    toggleTheme,
+    timeDisplayMode,
+    toggleTimeDisplayMode,
+    setIsAudioQualityModalOpen,
+    setIsFullScreenSingOpen,
   } = usePlayerStore();
+
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
 
   const formatTime = (sec: number) => {
     if (!sec || isNaN(sec)) return '0:00';
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const handleScrubberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    seek(val);
   };
 
   const cycleShuffle = () => {
@@ -96,84 +102,107 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
     }
   };
 
+  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current || !duration) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    seek(ratio * duration);
+  };
+
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const loopStartPercent = duration > 0 && abLoop.enabled ? (abLoop.startTime / duration) * 100 : 0;
   const loopEndPercent = duration > 0 && abLoop.enabled ? (abLoop.endTime / duration) * 100 : 0;
 
+  const remainingSeconds = Math.max(0, duration - currentTime);
+  const formattedRightTime =
+    timeDisplayMode === 'remaining' ? `-${formatTime(remainingSeconds)}` : formatTime(duration);
+
   return (
     <>
-      {/* Desktop Workstation PlayerBar */}
-      <footer className="hidden md:flex h-24 bg-white/95 dark:bg-slate-950/95 border-t border-slate-200 dark:border-slate-800/80 px-6 items-center justify-between z-40 shrink-0 select-none shadow-sm transition-colors">
-        {/* Left: Track Info */}
-        <div className="flex items-center gap-3 w-1/4 min-w-[200px]">
+      {/* Desktop Apple Music + Spotify Hybrid 92px Player Bar */}
+      <footer className="spotify-now-playing-bar hidden md:flex items-center justify-between w-full h-[92px] bg-white/80 dark:bg-[#121214]/90 backdrop-blur-2xl px-5 text-[#1d1d1f] dark:text-white z-50 select-none border-t border-black/5 dark:border-white/5 transition-colors">
+        {/* SEGMENT 1: LEFT (30%, min-width 200px) - Now Playing Widget */}
+        <div className="flex items-center gap-3.5 w-[30%] min-w-[200px] max-w-[420px]">
           {currentTrack ? (
             <>
-              <img
-                src={
-                  currentTrack.coverArtUrl ||
-                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'
-                }
-                alt=""
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80';
-                }}
-                className="w-14 h-14 rounded-xl object-cover shadow-xs border border-slate-200 dark:border-slate-700/50"
-              />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                    {currentTrack.title}
-                  </div>
-                  <button
-                    onClick={toggleCurrentTrackLike}
-                    className="p-1 text-slate-400 hover:text-rose-500 transition shrink-0"
-                    title={currentTrack.isFavorite ? 'Unlike' : 'Like'}
-                  >
-                    <Heart
-                      className={`w-3.5 h-3.5 ${
-                        currentTrack.isFavorite
-                          ? 'fill-rose-500 text-rose-500'
-                          : 'text-slate-400 hover:text-rose-500'
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentTrack.artist}</div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                    {currentTrack.sourceType === 'local' ? 'Local' : currentTrack.sourceType.toUpperCase()}
-                  </span>
-                  {currentTrack.bpm && (
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {Math.round(currentTrack.bpm)} BPM
-                    </span>
-                  )}
+              <div
+                onClick={() => setIsFullScreenSingOpen(true)}
+                className="relative group w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-slate-200 dark:bg-[#282828] shadow-sm border border-black/5 dark:border-white/5 cursor-pointer"
+                title="Open Apple Music Sing Fullscreen"
+              >
+                <img
+                  src={
+                    currentTrack.coverArtUrl ||
+                    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=120&q=80'
+                  }
+                  alt={currentTrack.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                  <Maximize2 className="w-4 h-4 text-white" />
                 </div>
               </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-bold text-[#1d1d1f] dark:text-white truncate hover:underline cursor-pointer">
+                  {currentTrack.title}
+                </div>
+                <div className="text-xs text-[#6e6e73] dark:text-[#a1a1a6] truncate hover:underline cursor-pointer mt-0.5">
+                  {currentTrack.artist}
+                </div>
+
+                {/* Apple Music Lossless & Hi-Res Badge Button */}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <button
+                    onClick={() => setIsAudioQualityModalOpen(true)}
+                    className="apple-lossless-badge"
+                    title="Configure Audio Quality & Spatial DSP"
+                  >
+                    {currentTrack.isHiRes ? 'Hi-Res Lossless' : currentTrack.isLossless ? 'Lossless' : 'AAC 320k'}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={toggleCurrentTrackLike}
+                className="p-1.5 text-[#86868b] hover:text-[#fa243c] transition shrink-0"
+                title={currentTrack.isFavorite ? 'Remove from Favorites' : 'Love this Song'}
+              >
+                <Heart
+                  className={`w-4 h-4 ${
+                    currentTrack.isFavorite
+                      ? 'fill-[#fa243c] text-[#fa243c]'
+                      : 'text-[#86868b] hover:text-[#fa243c]'
+                  }`}
+                />
+              </button>
             </>
           ) : (
-            <div className="text-xs text-slate-400 italic">No track selected</div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#fa243c] animate-pulse" />
+              <span className="text-xs font-bold tracking-wider text-[#86868b] uppercase">Sampath's Studio</span>
+            </div>
           )}
         </div>
 
-        {/* Center: Controls & Scrubber */}
-        <div className="flex flex-col items-center gap-2 max-w-xl w-2/4">
-          {/* Buttons Row */}
+        {/* SEGMENT 2: CENTER (40%, max-width 722px) - Cupertino Transport Controls & Playhead */}
+        <div className="flex flex-col items-center justify-center w-[40%] max-w-[722px] gap-1.5">
+          {/* Controls Buttons Row */}
           <div className="flex items-center gap-4">
-            {/* Smart Shuffle */}
+            {/* Shuffle */}
             <button
               onClick={cycleShuffle}
-              className={`relative p-2 rounded-xl transition ${
+              className={`relative p-1.5 rounded-full transition ${
                 shuffleMode !== 'off'
-                  ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/10'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                  ? 'text-[#fa243c] active-dot-indicator'
+                  : 'text-[#86868b] hover:text-[#1d1d1f] dark:hover:text-white'
               }`}
-              title={`Shuffle: ${shuffleMode}`}
+              title={`Shuffle: ${shuffleMode.toUpperCase()}`}
             >
               <Shuffle className="w-4 h-4" />
               {shuffleMode !== 'off' && (
-                <span className="absolute -top-1.5 -right-3 text-[9px] font-mono uppercase bg-indigo-600 text-white px-1 rounded-sm">
+                <span className="absolute -top-2 -right-3 text-[8px] font-mono uppercase bg-[#fa243c] text-white px-1 rounded-xs font-bold">
                   {shuffleMode === 'fisher-yates' ? 'F-Y' : shuffleMode === 'artist-spread' ? 'ART' : 'BPM'}
                 </span>
               )}
@@ -182,30 +211,30 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             {/* Previous Track */}
             <button
               onClick={() => prevTrack()}
-              className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition active:scale-95"
+              className="p-1.5 text-[#1d1d1f] dark:text-white hover:opacity-75 transition active:scale-95"
               title="Previous Track"
             >
               <SkipBack className="w-5 h-5 fill-current" />
             </button>
 
-            {/* Play / Pause */}
+            {/* Play / Pause 36px Circular Cupertino Button */}
             <button
               onClick={togglePlay}
-              className="w-10 h-10 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:scale-105 active:scale-95 flex items-center justify-center shadow-md transition"
+              className="w-9 h-9 rounded-full bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] hover:scale-105 active:scale-95 flex items-center justify-center shadow-md transition"
               title="Play / Pause (Space)"
             >
               {isPlaying ? (
-                <Pause className="w-5 h-5 fill-current" />
+                <Pause className="w-4 h-4 fill-current" />
               ) : (
-                <Play className="w-5 h-5 fill-current ml-0.5" />
+                <Play className="w-4 h-4 fill-current ml-0.5" />
               )}
             </button>
 
-            {/* Next Track (Zero skip limit!) */}
+            {/* Next Track */}
             <button
               onClick={() => nextTrack()}
-              className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition active:scale-95"
-              title="Next Track (Unlimited Skips)"
+              className="p-1.5 text-[#1d1d1f] dark:text-white hover:opacity-75 transition active:scale-95"
+              title="Next Track"
             >
               <SkipForward className="w-5 h-5 fill-current" />
             </button>
@@ -213,35 +242,35 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             {/* Repeat */}
             <button
               onClick={cycleRepeat}
-              className={`p-2 rounded-xl transition ${
+              className={`relative p-1.5 rounded-full transition ${
                 repeatMode !== 'off'
-                  ? 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/10'
-                  : 'text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                  ? 'text-[#fa243c] active-dot-indicator'
+                  : 'text-[#86868b] hover:text-[#1d1d1f] dark:hover:text-white'
               }`}
               title={`Repeat: ${repeatMode}`}
             >
               {repeatMode === 'one' ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
             </button>
 
-            {/* A-B Loop Section */}
+            {/* A-B Loop Marker Control */}
             <button
               onClick={handleABClick}
-              className={`flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded-lg border transition ${
+              className={`flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded border transition ${
                 abLoop.enabled
-                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40 shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-700'
+                  ? 'bg-[#fa243c]/15 text-[#fa243c] border-[#fa243c]/40 font-semibold'
+                  : 'bg-black/5 dark:bg-white/5 text-[#86868b] border-black/5 dark:border-white/10 hover:text-[#1d1d1f] dark:hover:text-white'
               }`}
-              title={abLoop.enabled ? 'Clear A-B Loop' : 'Set A-B Loop (Repeat chorus/solo)'}
+              title={abLoop.enabled ? 'Clear A-B Loop' : 'Set A-B Loop (Repeat section)'}
             >
               <Bookmark className="w-3 h-3" />
-              {abLoop.enabled ? `A-B [${Math.round(abLoop.startTime)}s - ${Math.round(abLoop.endTime)}s]` : 'A-B'}
+              <span>{abLoop.enabled ? `A-B [${Math.round(abLoop.startTime)}s-${Math.round(abLoop.endTime)}s]` : 'A-B'}</span>
             </button>
 
-            {/* Speed Selector */}
+            {/* Playback Rate Selector */}
             <select
               value={playbackRate}
               onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
-              className="text-[11px] bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-0.5 font-mono cursor-pointer"
+              className="text-[10px] bg-black/5 dark:bg-[#181818] text-[#1d1d1f] dark:text-[#b3b3b3] border border-black/10 dark:border-white/10 rounded px-1.5 py-0.5 font-mono cursor-pointer"
               title="Playback Speed"
             >
               <option value="0.5">0.5x</option>
@@ -253,159 +282,234 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             </select>
           </div>
 
-          {/* Timeline Scrubber */}
-          <div className="w-full flex items-center gap-3">
-            <span className="text-[11px] font-mono text-slate-400 w-10 text-right">
+          {/* Apple Music Cupertino Playhead Scrubber */}
+          <div className="playback-progressbar-group w-full max-w-[600px]">
+            <span className="text-[11px] font-mono text-[#86868b] dark:text-[#a1a1a6] w-10 text-right">
               {formatTime(currentTime)}
             </span>
 
-            <div className="relative flex-1 flex items-center h-5">
-              {abLoop.enabled && (
-                <div
-                  className="absolute h-1.5 bg-amber-400/50 rounded-full z-10 pointer-events-none"
-                  style={{
-                    left: `${loopStartPercent}%`,
-                    width: `${Math.max(2, loopEndPercent - loopStartPercent)}%`,
-                  }}
-                />
-              )}
+            <div
+              ref={progressBarRef}
+              onClick={handleProgressBarClick}
+              className="playback-progressbar flex-1"
+            >
+              <div className="playback-progressbar-track">
+                {/* A-B Loop Highlight Range */}
+                {abLoop.enabled && (
+                  <div
+                    className="absolute h-full bg-amber-400/60 rounded-full z-10 pointer-events-none"
+                    style={{
+                      left: `${loopStartPercent}%`,
+                      width: `${Math.max(2, loopEndPercent - loopStartPercent)}%`,
+                    }}
+                  />
+                )}
 
-              <input
-                type="range"
-                min="0"
-                max={duration || 100}
-                step="0.1"
-                value={currentTime}
-                onChange={handleScrubberChange}
-                className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-900 dark:accent-white relative z-20"
-              />
+                {/* Progress Fill */}
+                <div
+                  className="playback-progressbar-fill"
+                  style={{ width: `${progressPercent}%` }}
+                />
+
+                {/* Cupertino Hover Thumb */}
+                <div
+                  className="playback-progressbar-thumb"
+                  style={{ left: `${progressPercent}%` }}
+                />
+              </div>
             </div>
 
-            <span className="text-[11px] font-mono text-slate-400 w-10">
-              {formatTime(duration)}
-            </span>
+            {/* Toggleable Remaining / Total Time (Apple Music style) */}
+            <button
+              onClick={toggleTimeDisplayMode}
+              className="text-[11px] font-mono text-[#86868b] hover:text-[#1d1d1f] dark:hover:text-white w-12 text-left cursor-pointer transition"
+              title="Click to toggle elapsed / remaining time"
+            >
+              {formattedRightTime}
+            </button>
           </div>
         </div>
 
-        {/* Right: Workstation Tools */}
-        <div className="flex items-center justify-end gap-2 w-1/4 min-w-[200px]">
+        {/* SEGMENT 3: RIGHT (30%, min-width 200px) - Apple Music & Workstation Toggles */}
+        <div className="flex items-center justify-end gap-2.5 w-[30%] min-w-[200px] max-w-[420px]">
+          {/* Apple Music Sing / Ambient Fullscreen */}
+          <button
+            onClick={() => setIsFullScreenSingOpen(true)}
+            className="p-1.5 rounded-lg text-[#6e6e73] hover:text-[#fa243c] dark:text-[#a1a1a6] dark:hover:text-[#fa243c] hover:bg-black/5 dark:hover:bg-white/5 transition"
+            title="Apple Music Sing (Karaoke & Ambient Screen)"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
+          {/* Theme Toggle (Light / Dark) */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg text-[#6e6e73] hover:text-[#1d1d1f] dark:text-[#a1a1a6] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Theme`}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+          </button>
+
+          {/* Now Playing View Toggle */}
+          <button
+            onClick={() => toggleRightPanelTab('now-playing')}
+            className={`p-1.5 rounded-lg transition ${
+              rightPanelTab === 'now-playing'
+                ? 'text-[#fa243c] active-dot-indicator'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-white'
+            }`}
+            title="Now Playing View"
+          >
+            <Disc3 className="w-4 h-4" />
+          </button>
+
           {/* Synced Lyrics Toggle */}
           <button
-            onClick={onToggleLyrics}
-            className={`p-2 rounded-xl transition ${
-              isLyricsOpen
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            onClick={() => toggleRightPanelTab('lyrics')}
+            className={`p-1.5 rounded-lg transition ${
+              rightPanelTab === 'lyrics'
+                ? 'text-[#fa243c] active-dot-indicator'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-white'
             }`}
-            title="Toggle Synchronized Lyrics (L)"
+            title="Lyrics (L)"
           >
             <Mic2 className="w-4 h-4" />
           </button>
 
-          {/* EQ Workstation Toggle */}
+          {/* Queue Drawer Toggle */}
           <button
-            onClick={onToggleEQ}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-              isEQOpen
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+            onClick={() => toggleRightPanelTab('queue')}
+            className={`relative p-1.5 rounded-lg transition ${
+              rightPanelTab === 'queue'
+                ? 'text-[#fa243c] active-dot-indicator'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-white'
             }`}
-            title="10-Band Parametric Equalizer (E)"
-          >
-            <Sliders className="w-4 h-4" />
-            <span className="text-[11px] font-mono hidden xl:inline">{activePresetName || 'EQ'}</span>
-          </button>
-
-          {/* Dual Queue Drawer Toggle */}
-          <button
-            onClick={onToggleQueue}
-            className={`relative p-2 rounded-xl transition ${
-              isQueueOpen
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-            title="Playback Queue (Q)"
+            title="Queue (Q)"
           >
             <ListMusic className="w-4 h-4" />
             {(priorityQueue.length > 0 || contextQueue.length > 0) && (
-              <span className="absolute -top-1 -right-1 text-[9px] font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900 w-4 h-4 rounded-full flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-[#fa243c] text-white w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-xs">
                 {priorityQueue.length + contextQueue.length}
               </span>
             )}
           </button>
 
-          {/* Volume Slider */}
-          <div className="flex items-center gap-1.5 ml-1">
-            <button onClick={toggleMute} className="text-slate-400 hover:text-slate-700 dark:hover:text-white">
+          {/* 10-Band EQ & Visualizer Toggle */}
+          <button
+            onClick={() => toggleRightPanelTab('eq')}
+            className={`p-1.5 rounded-lg transition ${
+              rightPanelTab === 'eq'
+                ? 'text-[#fa243c] active-dot-indicator'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-white'
+            }`}
+            title="Parametric EQ & Visualizer (E)"
+          >
+            <Sliders className="w-4 h-4" />
+          </button>
+
+          {/* Volume Slider Group */}
+          <div className="flex items-center gap-1.5 ml-2">
+            <button
+              onClick={toggleMute}
+              className="text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#1d1d1f] dark:hover:text-white transition"
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
               {isMuted || volume === 0 ? (
-                <VolumeX className="w-4 h-4 text-rose-500" />
+                <VolumeX className="w-4 h-4 text-[#ff3b30]" />
               ) : (
                 <Volume2 className="w-4 h-4" />
               )}
             </button>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={isMuted ? 0 : volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="w-18 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-900 dark:accent-white"
-              title={`Volume: ${Math.round(volume * 100)}%`}
-            />
+
+            <div className="w-20 group flex items-center">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={isMuted ? 0 : volume}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="w-full h-1 bg-black/15 dark:bg-white/20 rounded-lg appearance-none cursor-pointer accent-[#fa243c]"
+                title={`Volume: ${Math.round(volume * 100)}%`}
+              />
+            </div>
           </div>
         </div>
       </footer>
 
-      {/* Mobile Floating Mini-Player Bar (Phone Screens < 768px) */}
-      <div className="md:hidden flex flex-col z-40 shrink-0 select-none border-t border-slate-200 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl transition-colors">
-        {/* Progress line */}
-        <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 overflow-hidden">
+      {/* Mobile Cupertino Floating Mini-Player & Bottom Navigation Dock (< 768px) */}
+      <div className="md:hidden flex flex-col z-50 shrink-0 select-none bg-white/90 dark:bg-[#121214]/90 backdrop-blur-2xl border-t border-black/10 dark:border-white/10 transition-colors">
+        {/* Continuous Progress Indicator Line */}
+        <div className="w-full h-1 bg-black/10 dark:bg-white/10 overflow-hidden relative">
           <div
-            className="h-full bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-300"
+            className="h-full bg-[#fa243c] transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        {/* Mini Player Touch Surface */}
+        {/* Floating Mini Player Card */}
         <div
+          id="mobile-mini-player"
+          data-testid="mobile-mini-player"
           onClick={onExpandMobileNowPlaying}
-          className="flex items-center justify-between px-3.5 py-2 cursor-pointer active:bg-slate-100 dark:active:bg-slate-900/60 transition"
+          className="flex items-center justify-between px-3 py-2 cursor-pointer active:bg-black/5 dark:active:bg-white/5 transition"
         >
-          {/* Left: Artwork + Title */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
-            <img
-              src={
-                currentTrack?.coverArtUrl ||
-                'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'
-              }
-              alt=""
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80';
-              }}
-              className="w-10 h-10 rounded-lg object-cover shadow-xs border border-slate-200 dark:border-slate-800 shrink-0"
-            />
+          {/* Cover Art + Title + Quality Badge */}
+          <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+            <div className="relative shrink-0">
+              <img
+                src={
+                  currentTrack?.coverArtUrl ||
+                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=100&q=80'
+                }
+                alt=""
+                className="w-11 h-11 rounded-xl object-cover shadow-sm border border-black/5 dark:border-white/5"
+              />
+              {isPlaying && (
+                <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center pointer-events-none">
+                  <div className="flex items-end gap-0.5 h-3">
+                    <span className="w-0.5 h-2 bg-white rounded-full animate-pulse" />
+                    <span className="w-0.5 h-3 bg-white rounded-full animate-pulse delay-75" />
+                    <span className="w-0.5 h-1.5 bg-white rounded-full animate-pulse delay-150" />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                {currentTrack ? currentTrack.title : 'No track selected'}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[#1d1d1f] dark:text-white truncate">
+                  {currentTrack ? currentTrack.title : "Sampath's Studio"}
+                </span>
+                {currentTrack && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAudioQualityModalOpen(true);
+                    }}
+                    className="apple-lossless-badge text-[8px] font-mono font-bold px-1 py-0.2 rounded bg-black/5 dark:bg-white/10 text-[#86868b] dark:text-[#a1a1a6] border border-black/10 dark:border-white/15 shrink-0"
+                  >
+                    {currentTrack.isHiRes ? 'HI-RES' : currentTrack.isLossless ? 'LOSSLESS' : 'AAC'}
+                  </button>
+                )}
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
-                <span>{currentTrack ? currentTrack.artist : 'Tap to choose song'}</span>
+              <div className="text-[11px] text-[#86868b] dark:text-[#a1a1a6] truncate">
+                {currentTrack ? currentTrack.artist : 'Select a track to play'}
               </div>
             </div>
           </div>
 
-          {/* Right: Quick Touch Playback Actions */}
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Quick Transport Controls */}
+          <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             {currentTrack && (
               <button
                 onClick={toggleCurrentTrackLike}
-                className="p-1.5 text-slate-400 hover:text-rose-500 active:scale-90 transition"
+                className="p-2 text-[#86868b] hover:text-[#fa243c] active:scale-95 transition"
+                aria-label={currentTrack.isFavorite ? 'Unlike' : 'Like'}
               >
                 <Heart
                   className={`w-4 h-4 ${
-                    currentTrack.isFavorite ? 'fill-rose-500 text-rose-500' : 'text-slate-400'
+                    currentTrack.isFavorite ? 'fill-[#fa243c] text-[#fa243c]' : ''
                   }`}
                 />
               </button>
@@ -413,7 +517,7 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             <button
               onClick={togglePlay}
               disabled={!currentTrack}
-              className="w-9 h-9 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-950 flex items-center justify-center active:scale-90 transition shadow-sm"
+              className="w-9 h-9 rounded-full bg-[#1d1d1f] dark:bg-white text-white dark:text-[#1d1d1f] flex items-center justify-center active:scale-90 transition shadow-sm"
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? (
@@ -425,13 +529,70 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
             <button
               onClick={() => nextTrack()}
               disabled={!currentTrack}
-              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white active:scale-90 transition"
+              className="p-2 text-[#1d1d1f] dark:text-white hover:opacity-75 active:scale-95 transition"
               aria-label="Next track"
             >
               <SkipForward className="w-5 h-5 fill-current" />
             </button>
           </div>
         </div>
+
+        {/* Apple Music Cupertino 4-Tab Bottom Navigation Bar */}
+        <nav
+          className="flex items-center justify-around border-t border-black/5 dark:border-white/5 py-1.5 px-2 pb-safe bg-white/95 dark:bg-[#121214]/95"
+          aria-label="Mobile Navigation"
+        >
+          {/* Tab 1: Library */}
+          <button
+            onClick={onOpenMobileLibrary}
+            className={`flex-1 flex flex-col items-center justify-center py-1 min-h-[44px] active:scale-95 transition ${
+              activeView === 'library'
+                ? 'text-[#fa243c]'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#fa243c]'
+            }`}
+          >
+            <Library className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Library</span>
+          </button>
+
+          {/* Tab 2: Search */}
+          <button
+            onClick={onOpenMobileSearch}
+            className={`flex-1 flex flex-col items-center justify-center py-1 min-h-[44px] active:scale-95 transition ${
+              activeView === 'search'
+                ? 'text-[#fa243c]'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#fa243c]'
+            }`}
+          >
+            <Search className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Search</span>
+          </button>
+
+          {/* Tab 3: Equalizer */}
+          <button
+            onClick={() => toggleRightPanelTab('eq')}
+            className={`flex-1 flex flex-col items-center justify-center py-1 min-h-[44px] active:scale-95 transition ${
+              rightPanelTab === 'eq'
+                ? 'text-[#fa243c]'
+                : 'text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#fa243c]'
+            }`}
+          >
+            <Sliders className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">10-Band EQ</span>
+          </button>
+
+          {/* Tab 4: Sing Karaoke */}
+          <button
+            onClick={() => setIsFullScreenSingOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center py-1 min-h-[44px] text-[#6e6e73] dark:text-[#a1a1a6] hover:text-[#fa243c] active:scale-95 transition relative"
+          >
+            <div className="relative">
+              <Mic2 className="w-5 h-5 text-[#fa243c]" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#fa243c] animate-ping" />
+            </div>
+            <span className="text-[10px] font-bold text-[#fa243c] mt-0.5">Sing</span>
+          </button>
+        </nav>
       </div>
     </>
   );

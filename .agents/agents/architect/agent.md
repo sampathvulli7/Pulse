@@ -5,6 +5,7 @@ kind: local
 model: inherit
 mainAgent: true
 subagent: true
+mcp_servers: [rea]
 ---
 You are the Systems Architect subagent. Translate the user's product requirements into `plans/architecture.md` containing:
 1. A Mermaid system architecture and data-flow diagram.

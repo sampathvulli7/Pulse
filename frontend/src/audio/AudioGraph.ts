@@ -2,6 +2,9 @@
  * Web Audio API Dual-Deck DSP Graph with 10-Band Parametric EQ and AnalyserNode
  */
 
+import { SpatialProcessor } from './SpatialProcessor';
+import { SpatialAudioMode } from '../types/audio';
+
 export const EQ_FREQUENCIES = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
 
 export interface AudioDeck {
@@ -19,6 +22,8 @@ export class AudioGraph {
   // DSP Nodes
   private preampGain: GainNode | null = null;
   private eqFilters: BiquadFilterNode[] = [];
+  private spatialProcessor: SpatialProcessor | null = null;
+  private soundCheckGain: GainNode | null = null;
   private masterGain: GainNode | null = null;
   private limiter: DynamicsCompressorNode | null = null;
   private analyser: AnalyserNode | null = null;
@@ -90,10 +95,19 @@ export class AudioGraph {
     this.limiter.attack.value = 0.003;
     this.limiter.release.value = 0.15;
 
+    // Create SpatialProcessor (Apple Music 3D Virtualizer)
+    this.spatialProcessor = new SpatialProcessor(this.ctx);
+
+    // Create Sound Check Gain (Loudness Normalizer)
+    this.soundCheckGain = this.ctx.createGain();
+    this.soundCheckGain.gain.value = 1.0;
+
     // Wire DSP Chain:
-    // Deck Gain -> Preamp -> Filter[0] ... Filter[9] -> MasterGain -> Limiter -> Analyser -> Destination
+    // Deck Gain -> Preamp -> Filter[0] ... Filter[9] -> SpatialProcessor -> SoundCheckGain -> MasterGain -> Limiter -> Analyser -> Destination
     this.preampGain.connect(this.eqFilters[0]);
-    this.eqFilters[this.eqFilters.length - 1].connect(this.masterGain);
+    this.eqFilters[this.eqFilters.length - 1].connect(this.spatialProcessor.input);
+    this.spatialProcessor.output.connect(this.soundCheckGain);
+    this.soundCheckGain.connect(this.masterGain);
     this.masterGain.connect(this.limiter);
     this.limiter.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
@@ -138,6 +152,12 @@ export class AudioGraph {
 
   public getAudioContext(): AudioContext | null {
     return this.ctx;
+  }
+
+  public async resume(): Promise<void> {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      await this.ctx.resume();
+    }
   }
 
   public getActiveDeck(): AudioDeck {
@@ -221,6 +241,35 @@ export class AudioGraph {
     if (this.masterGain && this.ctx) {
       const clamped = Math.max(0, Math.min(1, volume));
       this.masterGain.gain.setTargetAtTime(clamped, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  public setSpatialMode(mode: SpatialAudioMode) {
+    this.ensureInitialized();
+    if (this.spatialProcessor) {
+      this.spatialProcessor.setMode(mode);
+    }
+  }
+
+  public getSpatialMode(): SpatialAudioMode {
+    if (!this.spatialProcessor) return 'off';
+    return this.spatialProcessor.getMode();
+  }
+
+  public setSoundCheck(enabled: boolean, trackLoudness?: number) {
+    this.ensureInitialized();
+    if (this.soundCheckGain && this.ctx) {
+      if (!enabled) {
+        this.soundCheckGain.gain.setTargetAtTime(1.0, this.ctx.currentTime, 0.05);
+        return;
+      }
+
+      // Apple Music Sound Check: target -14 LUFS integrated
+      // If trackLoudness is provided (e.g. -6.6 dBFS), diff is -14.0 - (-6.6) = -7.4 dB
+      const loudness = typeof trackLoudness === 'number' && !isNaN(trackLoudness) ? trackLoudness : -14.0;
+      const gainDiffDb = Math.max(-6.0, Math.min(4.0, -14.0 - loudness));
+      const linear = Math.pow(10, gainDiffDb / 20);
+      this.soundCheckGain.gain.setTargetAtTime(linear, this.ctx.currentTime, 0.05);
     }
   }
 

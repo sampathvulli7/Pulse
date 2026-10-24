@@ -1,5 +1,19 @@
 import { create } from 'zustand';
-import { Track, ShuffleMode, RepeatMode, ABLoopMarker, EQPreset, QueueSnapshot } from '../types/audio';
+import {
+  Track,
+  ShuffleMode,
+  RepeatMode,
+  ABLoopMarker,
+  EQPreset,
+  QueueSnapshot,
+  RightPanelTab,
+  LeftRailMode,
+  LibraryFilter,
+  LibrarySort,
+  AudioQualityTier,
+  SpatialAudioMode,
+  AppTheme,
+} from '../types/audio';
 import { PlaybackController } from '../audio/PlaybackController';
 import { pureFisherYatesShuffle, artistSpreadShuffle, bpmEnergyFlowShuffle } from '../audio/shuffle';
 import { globalAudioGraph } from '../audio/AudioGraph';
@@ -33,6 +47,15 @@ export interface PlayerState {
   preampGain: number;
   activePresetName: string;
 
+  // Spotify xpui Layout & Navigation State
+  rightPanelTab: RightPanelTab;
+  leftRailMode: LeftRailMode;
+  leftRailWidth: number;
+  rightRailWidth: number;
+  libraryFilter: LibraryFilter;
+  librarySort: LibrarySort;
+  librarySearchQuery: string;
+
   // Controller reference
   controller: PlaybackController | null;
 
@@ -53,11 +76,23 @@ export interface PlayerState {
   setCrossfadeDuration: (seconds: number) => void;
   toggleCurrentTrackLike: () => Promise<void>;
 
+  // Layout Actions
+  setRightPanelTab: (tab: RightPanelTab) => void;
+  toggleRightPanelTab: (tab: RightPanelTab) => void;
+  setLeftRailMode: (mode: LeftRailMode) => void;
+  toggleLeftRailMode: () => void;
+  setLeftRailWidth: (width: number) => void;
+  setRightRailWidth: (width: number) => void;
+  setLibraryFilter: (filter: LibraryFilter) => void;
+  setLibrarySort: (sort: LibrarySort) => void;
+  setLibrarySearchQuery: (query: string) => void;
+
   // Queue Operations (Drag & Drop, Insert, Remove)
   addToPriorityQueue: (track: Track, position?: 'next' | 'last') => void;
   reorderPriorityQueue: (fromIndex: number, toIndex: number) => void;
   reorderContextQueue: (fromIndex: number, toIndex: number) => void;
   removeFromPriorityQueue: (index: number) => void;
+  removeFromPriorityQueueByUid: (uid: string) => void;
   removeFromContextQueue: (index: number) => void;
   moveContextToPriority: (contextIndex: number) => void;
   clearPriorityQueue: () => void;
@@ -71,6 +106,26 @@ export interface PlayerState {
   restoreQueueSnapshot: (snapshot: QueueSnapshot) => Promise<void>;
   setEQBandGain: (bandIndex: number, gainDb: number) => void;
   applyEQPreset: (preset: EQPreset) => void;
+
+  // Apple Music & Hybrid Workstation Enhancements
+  theme: AppTheme;
+  timeDisplayMode: 'elapsed' | 'remaining';
+  audioQualityTier: AudioQualityTier;
+  spatialAudioMode: SpatialAudioMode;
+  soundCheckEnabled: boolean;
+  isAudioQualityModalOpen: boolean;
+  isFullScreenSingOpen: boolean;
+  isStorageModalOpen: boolean;
+
+  setTheme: (theme: AppTheme) => void;
+  toggleTheme: () => void;
+  toggleTimeDisplayMode: () => void;
+  setAudioQualityTier: (tier: AudioQualityTier) => void;
+  setSpatialAudioMode: (mode: SpatialAudioMode) => void;
+  setSoundCheckEnabled: (enabled: boolean) => void;
+  setIsAudioQualityModalOpen: (open: boolean) => void;
+  setIsFullScreenSingOpen: (open: boolean) => void;
+  setIsStorageModalOpen: (open: boolean) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -97,6 +152,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   eqGains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   preampGain: 0.0,
   activePresetName: 'Flat',
+
+  // Spotify xpui Layout & Navigation State
+  rightPanelTab: 'queue',
+  leftRailMode: 'expanded',
+  leftRailWidth: 280,
+  rightRailWidth: 340,
+  libraryFilter: 'all',
+  librarySort: 'recents',
+  librarySearchQuery: '',
+
+  // Apple Music & Workstation Enhancements
+  theme: (typeof window !== 'undefined' && (localStorage.getItem('pulse-theme') as AppTheme)) || 'dark',
+  timeDisplayMode: 'elapsed',
+  audioQualityTier: 'lossless',
+  spatialAudioMode: 'fixed',
+  soundCheckEnabled: true,
+  isAudioQualityModalOpen: false,
+  isFullScreenSingOpen: false,
+  isStorageModalOpen: false,
 
   controller: null,
 
@@ -201,6 +275,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       duration: track.durationSeconds || 0,
       activeEngine: track.sourceType === 'youtube' ? 'youtube' : 'html5',
     });
+
+    // Apply Apple Music Spatial Audio & Sound Check
+    globalAudioGraph.setSpatialMode(get().spatialAudioMode);
+    if (get().soundCheckEnabled) {
+      const energy = track.energy ?? 0.5;
+      const estLoudness = -14.0 + (1 - energy) * -6;
+      globalAudioGraph.setSoundCheck(true, estLoudness);
+    }
 
     // Manual track plays are instant (crossfade = false) to prevent deck collision
     await controller?.playTrack(track, 0, false);
@@ -315,12 +397,33 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  // Layout Actions
+  setRightPanelTab: (tab: RightPanelTab) => set({ rightPanelTab: tab }),
+  toggleRightPanelTab: (tab: RightPanelTab) => {
+    const current = get().rightPanelTab;
+    set({ rightPanelTab: current === tab ? null : tab });
+  },
+  setLeftRailMode: (mode: LeftRailMode) => set({ leftRailMode: mode }),
+  toggleLeftRailMode: () => {
+    const current = get().leftRailMode;
+    set({ leftRailMode: current === 'expanded' ? 'collapsed' : 'expanded' });
+  },
+  setLeftRailWidth: (width: number) => set({ leftRailWidth: Math.max(200, Math.min(480, width)) }),
+  setRightRailWidth: (width: number) => set({ rightRailWidth: Math.max(280, Math.min(500, width)) }),
+  setLibraryFilter: (filter: LibraryFilter) => set({ libraryFilter: filter }),
+  setLibrarySort: (sort: LibrarySort) => set({ librarySort: sort }),
+  setLibrarySearchQuery: (query: string) => set({ librarySearchQuery: query }),
+
   addToPriorityQueue: (track: Track, position: 'next' | 'last' = 'last') => {
     const { priorityQueue } = get();
+    const trackWithUid: Track = {
+      ...track,
+      uid: track.uid || `${track.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    };
     if (position === 'next') {
-      set({ priorityQueue: [track, ...priorityQueue] });
+      set({ priorityQueue: [trackWithUid, ...priorityQueue] });
     } else {
-      set({ priorityQueue: [...priorityQueue, track] });
+      set({ priorityQueue: [...priorityQueue, trackWithUid] });
     }
   },
 
@@ -342,6 +445,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const queue = [...get().priorityQueue];
     queue.splice(index, 1);
     set({ priorityQueue: queue });
+  },
+
+  removeFromPriorityQueueByUid: (uid: string) => {
+    set({ priorityQueue: get().priorityQueue.filter((t) => t.uid !== uid) });
   },
 
   removeFromContextQueue: (index: number) => {
@@ -501,6 +608,49 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       activePresetName: preset.name,
     });
   },
+
+  // Apple Music & Workstation Actions
+  setTheme: (theme: AppTheme) => {
+    set({ theme });
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('pulse-theme', theme);
+      } catch (e) {}
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.documentElement.classList.toggle('light', theme === 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      document.body?.setAttribute('data-theme', theme);
+    }
+  },
+
+  toggleTheme: () => {
+    const next = get().theme === 'dark' ? 'light' : 'dark';
+    get().setTheme(next);
+  },
+
+  toggleTimeDisplayMode: () => {
+    set({ timeDisplayMode: get().timeDisplayMode === 'elapsed' ? 'remaining' : 'elapsed' });
+  },
+
+  setAudioQualityTier: (tier: AudioQualityTier) => set({ audioQualityTier: tier }),
+
+  setSpatialAudioMode: (mode: SpatialAudioMode) => {
+    globalAudioGraph.setSpatialMode(mode);
+    set({ spatialAudioMode: mode });
+  },
+
+  setSoundCheckEnabled: (enabled: boolean) => {
+    const energy = get().currentTrack?.energy ?? 0.5;
+    const estLoudness = -14.0 + (1 - energy) * -6;
+    globalAudioGraph.setSoundCheck(enabled, estLoudness);
+    set({ soundCheckEnabled: enabled });
+  },
+
+  setIsAudioQualityModalOpen: (open: boolean) => set({ isAudioQualityModalOpen: open }),
+
+  setIsFullScreenSingOpen: (open: boolean) => set({ isFullScreenSingOpen: open }),
+
+  setIsStorageModalOpen: (open: boolean) => set({ isStorageModalOpen: open }),
 }));
 
 if (typeof window !== 'undefined') {

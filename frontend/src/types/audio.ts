@@ -17,12 +17,24 @@ export interface Track {
   genre?: string;
   isrc?: string;
   bitrate?: number;
+  sampleRate?: number; // e.g. 44100, 48000, 96000, 192000 Hz
+  bitDepth?: number;   // e.g. 16, 24 bit
+  codec?: 'ALAC' | 'FLAC' | 'AAC' | 'WAV' | 'MP3';
+  isLossless?: boolean;
+  isHiRes?: boolean;
+  isSpatialAvailable?: boolean;
   playCount: number;
   skipCount: number;
   isFavorite?: boolean;
+  uid?: string; // Unique instance ID in dual-queue
   lastPlayedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface QueueItem {
+  uid: string;
+  track: Track;
 }
 
 export interface Playlist {
@@ -107,3 +119,50 @@ export interface LyricsData {
   parsedLines?: SyncedLyricLine[];
   instrumental: boolean;
 }
+
+// Spotify xpui UI State & Navigation Types
+export type RightPanelTab = 'now-playing' | 'queue' | 'eq' | 'lyrics' | null;
+export type LeftRailMode = 'expanded' | 'collapsed';
+export type LibraryFilter = 'all' | 'playlists' | 'artists' | 'albums' | 'mixes';
+export type LibrarySort = 'recents' | 'recently_added' | 'alphabetical' | 'creator';
+
+export interface SpotifyAudioFeatures {
+  id: string;
+  danceability: number;
+  energy: number;
+  key: number;
+  key_name: string;
+  loudness: number;
+  mode: number;
+  speechiness: number;
+  acousticness: number;
+  instrumentalness: number;
+  liveness: number;
+  valence: number;
+  tempo: number;
+  duration_ms: number;
+  time_signature: number;
+}
+
+export interface DailyMix {
+  id: string;
+  name: string;
+  subtitle: string;
+  genre: string;
+  coverUrl: string;
+  trackCount: number;
+  tracks: Track[];
+}
+
+// Apple Music & Hybrid Workstation Audio Types
+export type AudioQualityTier = 'high-efficiency' | 'high-quality' | 'lossless' | 'hi-res-lossless';
+export type SpatialAudioMode = 'off' | 'fixed' | 'wide-stage';
+export type AppTheme = 'light' | 'dark' | 'auto';
+
+export interface AudioQualitySettings {
+  streamingTier: AudioQualityTier;
+  soundCheckEnabled: boolean; // Loudness Normalization to -14 LUFS
+  spatialAudioMode: SpatialAudioMode;
+  dacSampleRate: number; // e.g. 48000, 96000, 192000
+}
+

@@ -147,6 +147,50 @@ async function runAllTests() {
     assert.strictEqual(proxyRes.headers.get('accept-ranges'), 'bytes', 'Expected Accept-Ranges: bytes');
     console.log('✓ Passed: Stream proxy delivered 206 chunk with full CORS and Range headers.');
 
+    // 10. Test Spotify Song Radio & Audio Features
+    console.log('\n[Test 10] Testing Spotify Song Radio & Acoustic Audio Features...');
+    const anyTrack = db.prepare('SELECT id, title FROM tracks LIMIT 1').get() as any;
+    assert(anyTrack, 'Track must exist');
+
+    const radioRes = await fetch(`${baseUrl}/api/tracks/${anyTrack.id}/radio?limit=15`);
+    assert.strictEqual(radioRes.status, 200);
+    const radioData = await radioRes.json() as any;
+    assert(radioData.radioPlaylistName.includes('Radio'), 'Radio playlist name must include Radio');
+    assert(Array.isArray(radioData.tracks) && radioData.tracks.length > 0, 'Radio must return track recommendations');
+
+    const featuresRes = await fetch(`${baseUrl}/api/tracks/${anyTrack.id}/audio-features`);
+    assert.strictEqual(featuresRes.status, 200);
+    const features = await featuresRes.json() as any;
+    assert(typeof features.danceability === 'number', 'Danceability must be number');
+    assert(typeof features.energy === 'number', 'Energy must be number');
+    assert(typeof features.valence === 'number', 'Valence must be number');
+    assert(typeof features.tempo === 'number', 'Tempo must be number');
+    console.log(`✓ Passed: Song Radio generated "${radioData.radioPlaylistName}" with ${radioData.tracks.length} tracks; Audio Features returned tempo=${features.tempo} BPM, valence=${features.valence}`);
+
+    // 11. Test Spotify Daily Mixes Generator
+    console.log('\n[Test 11] Testing Spotify Daily Mixes Generator...');
+    const mixesRes = await fetch(`${baseUrl}/api/mixes`);
+    assert.strictEqual(mixesRes.status, 200);
+    const mixesData = await mixesRes.json() as any;
+    assert(Array.isArray(mixesData.mixes) && mixesData.mixes.length > 0, 'Expected generated Daily Mixes');
+    assert(mixesData.mixes[0].name.startsWith('Daily Mix'), 'First mix must be named Daily Mix 1');
+    assert(mixesData.mixes[0].tracks.length > 0, 'Daily Mix must contain tracks');
+    console.log(`✓ Passed: Daily Mixes generator created ${mixesData.mixes.length} personalized genre clusters.`);
+
+    // 12. Test User Stats & Instant Search Suggestions
+    console.log('\n[Test 12] Testing Listening Stats, Recently Played, and Search Suggestions...');
+    const statsRes = await fetch(`${baseUrl}/api/me/stats`);
+    assert.strictEqual(statsRes.status, 200);
+    const stats = await statsRes.json() as any;
+    assert(typeof stats.totalTracks === 'number' && stats.totalTracks > 0);
+
+    const suggestRes = await fetch(`${baseUrl}/api/search/suggestions?q=a`);
+    assert.strictEqual(suggestRes.status, 200);
+    const suggestions = await suggestRes.json() as any;
+    assert(Array.isArray(suggestions.songs));
+    assert(Array.isArray(suggestions.artists));
+    console.log(`✓ Passed: Stats returned totalTracks=${stats.totalTracks}, search suggestions delivered categorized hits.`);
+
     console.log('\n=========================================');
     console.log('ALL BACKEND INTEGRATION TESTS PASSED (0 failures)');
     console.log('=========================================\n');

@@ -2,5 +2,11 @@ node_modules
 dist
 data/*.sqlite-shm
 data/*.sqlite-wal
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+backend/cache/
 .DS_Store
 *.log
+plans/rea-evidence-bundle.json
+target_reference/
+
