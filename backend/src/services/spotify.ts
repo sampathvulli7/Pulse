@@ -129,7 +129,7 @@ export async function searchGlobalTracks(query: string) {
         durationSeconds: Math.round((t.trackTimeMillis || 180000) / 1000),
         coverArtUrl: highResArtwork || t.artworkUrl100 || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80',
         previewUrl: t.previewUrl,
-        sourceUrl: `/api/stream/trk-global-${t.trackId}`,
+        sourceUrl: `/api/stream/trk-global-${t.trackId}?title=${encodeURIComponent(t.trackName)}&artist=${encodeURIComponent(t.artistName)}`,
         genre: t.primaryGenreName || 'Pop',
         isrc: t.isrc,
         sourceType: 'local',

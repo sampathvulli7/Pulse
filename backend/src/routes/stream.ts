@@ -14,7 +14,71 @@ const FALLBACK_COVER_ART = 'https://images.unsplash.com/photo-1514525253161-7a46
  */
 export async function handleAudioStream(req: Request, res: Response) {
   const { id } = req.params;
-  const track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as any;
+  let track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as any;
+
+  // Auto-resolve and persist unseeded/on-the-fly tracks (from search or direct URLs)
+  if (!track) {
+    let title = (req.query.title as string) || '';
+    let artist = (req.query.artist as string) || '';
+    let coverArt = (req.query.coverArtUrl || req.query.cover) as string || '';
+
+    // If it's a global iTunes track, lookup metadata if title/artist missing
+    if ((!title || !artist) && id.startsWith('trk-global-')) {
+      const itunesId = id.replace('trk-global-', '');
+      try {
+        const itRes = await fetch(`https://itunes.apple.com/lookup?id=${itunesId}`);
+        if (itRes.ok) {
+          const itData = (await itRes.json()) as any;
+          if (itData.results?.[0]) {
+            title = itData.results[0].trackName;
+            artist = itData.results[0].artistName;
+            coverArt = (itData.results[0].artworkUrl100 || '').replace('100x100bb.jpg', '600x600bb.jpg');
+          }
+        }
+      } catch (e) {
+        console.warn(`[Stream] Could not lookup iTunes ID ${itunesId}:`, e);
+      }
+    }
+
+    // If it's a Spotify track, lookup via oEmbed if title/artist missing
+    if ((!title || !artist) && id.startsWith('trk-spot-')) {
+      const spotId = id.replace('trk-spot-', '');
+      try {
+        const oembedRes = await fetch(`https://open.spotify.com/oembed?url=https://open.spotify.com/track/${spotId}`);
+        if (oembedRes.ok) {
+          const oembedData = (await oembedRes.json()) as any;
+          const parts = (oembedData.title || '').split(' - ');
+          title = parts[0] || 'Spotify Track';
+          artist = parts.slice(1).join(' - ') || 'Spotify Artist';
+          coverArt = oembedData.thumbnail_url || '';
+        }
+      } catch (e) {
+        console.warn(`[Stream] Could not lookup Spotify ID ${spotId}:`, e);
+      }
+    }
+
+    if (title && artist) {
+      try {
+        db.prepare(`
+          INSERT OR IGNORE INTO tracks (
+            id, title, artist, album, duration_seconds, source_type,
+            source_url, cover_art_url, bpm, energy, genre, bitrate
+          ) VALUES (?, ?, ?, ?, ?, 'local', ?, ?, 120, 0.7, 'Pop', 320)
+        `).run(
+          id,
+          title,
+          artist,
+          (req.query.album as string) || 'Single',
+          parseInt(req.query.duration as string, 10) || 210,
+          `/api/stream/${id}`,
+          coverArt || FALLBACK_COVER_ART
+        );
+        track = db.prepare('SELECT * FROM tracks WHERE id = ?').get(id) as any;
+      } catch (e) {
+        console.warn('[Stream] Could not auto-insert track into database:', e);
+      }
+    }
+  }
 
   if (!track) {
     return res.status(404).json({ error: 'Track not found' });
