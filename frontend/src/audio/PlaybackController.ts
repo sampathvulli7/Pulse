@@ -75,11 +75,24 @@ export class PlaybackController {
     this.currentTrack = track;
     this.updateMediaSession(track);
 
+    // Filter out and reject 30-second iTunes preview clips
+    const is30sPreviewUrl = Boolean(
+      track.sourceUrl && (
+        track.sourceUrl.includes('itunes.apple.com') ||
+        track.sourceUrl.includes('AudioPreview') ||
+        track.sourceUrl.includes('.plus.aac.p.m4a') ||
+        track.sourceUrl.includes('/api/stream/proxy?url=')
+      )
+    );
+
+    // If sourceUrl is a 30s preview clip, route to Pulse full stream engine (/api/stream/:id)
+    const effectiveSourceUrl = is30sPreviewUrl ? `/api/stream/${track.id}` : track.sourceUrl;
+
     // Prioritize direct Web Audio stream (0ms buffer, connects to 10-band EQ & visualizer)
     const hasDirectStream = Boolean(
-      track.sourceUrl ||
+      (effectiveSourceUrl && !is30sPreviewUrl) ||
       track.sourceType === 'local' ||
-      track.sourceType === 'stream'
+      track.localPath
     );
 
     if (!hasDirectStream && track.sourceType === 'youtube' && track.youtubeVideoId) {
@@ -113,7 +126,7 @@ export class PlaybackController {
     const activeDeck = this.audioGraph.getActiveDeck();
     const inactiveDeck = this.audioGraph.getInactiveDeck();
     const offlineUrl = await getOfflineTrackUrl(track.id);
-    const streamUrl = offlineUrl || track.sourceUrl || `/api/stream/${track.id}`;
+    const streamUrl = offlineUrl || (is30sPreviewUrl ? `/api/stream/${track.id}` : (track.sourceUrl || `/api/stream/${track.id}`));
 
     // Always cancel any pending crossfades from previous track switches
     this.crossfader.cancel(activeDeck, inactiveDeck, ctx);
@@ -278,6 +291,28 @@ export class PlaybackController {
 
     audio.onended = () => {
       if (this.activeEngine === 'html5') {
+        // Detect accidental short clip cutoff (<45s) when the track is supposed to be full-length (>60s)
+        if (
+          audio.currentTime < 45 &&
+          this.currentTrack &&
+          this.currentTrack.durationSeconds > 60 &&
+          this.currentTrack.youtubeVideoId
+        ) {
+          console.warn('[PlaybackController] 30s preview cutoff detected! Auto-switching to full YouTube engine...');
+          this.stopHTML5();
+          this.activeEngine = 'youtube';
+          this.ytBridge.init().then(() => {
+            this.ytBridge.showDock();
+            this.ytBridge.loadVideoById(this.currentTrack!.youtubeVideoId!, audio.currentTime);
+            this.ytBridge.play();
+            this.isPlaying = true;
+            this.callbacks.onStateChange(true, false);
+          }).catch(() => {
+            this.callbacks.onTrackEnded();
+          });
+          return;
+        }
+
         this.callbacks.onTrackEnded();
       }
     };

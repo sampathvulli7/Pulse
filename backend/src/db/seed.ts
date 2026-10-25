@@ -80,60 +80,66 @@ export function seedDemoData() {
   `);
 
   const rawTracks = [
-    // 1-3: Local Audio with real local byte files
+    // 1-3: Local Audio with real full-length audio files (3-5 minutes each!)
     {
       id: 'trk-local-01',
       title: 'Sunset Drive (Local HQ Master)',
       artist: 'The Midnight Synth',
       album: 'Endless Summer Days',
-      duration_seconds: 12,
+      duration_seconds: 326,
       source_type: 'local',
       source_url: '/api/stream/trk-local-01',
-      local_path: path.join(localDir, 'sunset_drive.wav'),
-      youtube_video_id: 'i2bhnV4zQ-A',
+      local_path: fs.existsSync(path.join(localDir, 'sunset_drive.mp3'))
+        ? path.join(localDir, 'sunset_drive.mp3')
+        : path.join(localDir, 'sunset_drive.wav'),
+      youtube_video_id: 'URma_gu1aNE',
       cover_art_url: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&q=80',
       bpm: 118,
       energy: 0.82,
       key_signature: 'A minor',
       genre: 'Synthwave',
       isrc: 'USM112400001',
-      bitrate: 1411
+      bitrate: 320
     },
     {
       id: 'trk-local-02',
       title: 'Rainy Coffee Shop (Local FLAC/WAV)',
       artist: 'Lofi Dreamer',
       album: 'Sunday Morning Coffee',
-      duration_seconds: 15,
+      duration_seconds: 158,
       source_type: 'local',
       source_url: '/api/stream/trk-local-02',
-      local_path: path.join(localDir, 'rainy_coffee.wav'),
-      youtube_video_id: 'jfKfPfyJRdk',
+      local_path: fs.existsSync(path.join(localDir, 'rainy_coffee.mp3'))
+        ? path.join(localDir, 'rainy_coffee.mp3')
+        : path.join(localDir, 'rainy_coffee.wav'),
+      youtube_video_id: 'cvIROwGAOn8',
       cover_art_url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&q=80',
       bpm: 78,
       energy: 0.35,
       key_signature: 'C major',
       genre: 'Lo-Fi',
       isrc: 'USL240000002',
-      bitrate: 1411
+      bitrate: 320
     },
     {
       id: 'trk-local-03',
       title: 'Quantum Leap (Local Stem)',
       artist: 'Cyberpulse',
       album: 'Neon Horizon',
-      duration_seconds: 10,
+      duration_seconds: 270,
       source_type: 'local',
       source_url: '/api/stream/trk-local-03',
-      local_path: path.join(localDir, 'quantum_leap.wav'),
-      youtube_video_id: '4xDzrJKXOOY',
+      local_path: fs.existsSync(path.join(localDir, 'quantum_leap.mp3'))
+        ? path.join(localDir, 'quantum_leap.mp3')
+        : path.join(localDir, 'quantum_leap.wav'),
+      youtube_video_id: 'TvZskcqdYcE',
       cover_art_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80',
       bpm: 128,
       energy: 0.91,
       key_signature: 'F# minor',
       genre: 'Electronic',
       isrc: 'USE240000003',
-      bitrate: 1411
+      bitrate: 320
     },
 
     // 4-15: Synthwave & Retrowave

@@ -3,14 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { Readable } from 'stream';
 import { db } from '../db/database';
-import { getCachedAudioPath, ensureFullAudio } from '../services/fullAudio';
+import { getCachedAudioPath, ensureFullAudio, getDirectAudioStreamUrl } from '../services/fullAudio';
 
 const FALLBACK_COVER_ART = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80';
 
 /**
  * Streams audio with HTTP 206 Partial Content support.
  * Automatically serves local files, cached full-length M4A/MP3 tracks,
- * or on-demand downloads the full song via yt-dlp so users NEVER get cut off at 30 seconds!
+ * or on-demand streams the full song via direct YouTube audio extraction so users NEVER get cut off at 30 seconds!
  */
 export async function handleAudioStream(req: Request, res: Response) {
   const { id } = req.params;
@@ -20,7 +20,7 @@ export async function handleAudioStream(req: Request, res: Response) {
     return res.status(404).json({ error: 'Track not found' });
   }
 
-  // 1. Check if track already has a valid local file
+  // 1. Check if track already has a valid local file on disk
   let filePath = track.local_path && fs.existsSync(track.local_path) ? track.local_path : null;
 
   // 2. Check if cached in audio cache
@@ -28,27 +28,60 @@ export async function handleAudioStream(req: Request, res: Response) {
     filePath = getCachedAudioPath(id);
   }
 
-  // 3. If neither exists, trigger full-audio download
-  if (!filePath) {
-    try {
-      filePath = await ensureFullAudio({
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        youtubeVideoId: track.youtube_video_id,
-      });
-    } catch (e) {
-      console.warn(`[Stream] Could not download full audio for ${track.title}:`, e);
-    }
-  }
-
-  // 4. If we have a local file on disk, stream it with HTTP 206
+  // 3. If file exists on disk, stream it immediately with HTTP 206
   if (filePath && fs.existsSync(filePath)) {
     return streamLocalFile(filePath, req, res);
   }
 
-  // 5. Fallback: If a remote stream URL is available (e.g. Audius or preview), proxy it
-  if (track.source_url && (track.source_url.startsWith('http://') || track.source_url.startsWith('https://'))) {
+  // 4. If not on disk, try resolving direct stream URL in ~1.5s for instant playback
+  try {
+    const directUrl = await getDirectAudioStreamUrl({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      youtubeVideoId: track.youtube_video_id,
+    });
+
+    if (directUrl) {
+      // Trigger background download to disk for future plays
+      ensureFullAudio({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        youtubeVideoId: track.youtube_video_id,
+      }).catch((e) => console.warn(`[Stream] Background pre-cache notice:`, e.message));
+
+      req.query.url = directUrl;
+      return handleStreamProxy(req, res);
+    }
+  } catch (err) {
+    console.warn(`[Stream] Direct stream resolve notice for ${track.title}:`, err);
+  }
+
+  // 5. If direct stream URL failed, await full audio download
+  try {
+    filePath = await ensureFullAudio({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      youtubeVideoId: track.youtube_video_id,
+    });
+  } catch (e) {
+    console.warn(`[Stream] Could not download full audio for ${track.title}:`, e);
+  }
+
+  if (filePath && fs.existsSync(filePath)) {
+    return streamLocalFile(filePath, req, res);
+  }
+
+  // 6. Fallback: If a remote stream URL is available (e.g. Audius or Archive), proxy it.
+  // CRITICAL: NEVER proxy a 30-second preview clip!
+  if (
+    track.source_url &&
+    (track.source_url.startsWith('http://') || track.source_url.startsWith('https://')) &&
+    !track.source_url.includes('itunes.apple.com') &&
+    !track.source_url.includes('AudioPreview')
+  ) {
     req.query.url = track.source_url;
     return handleStreamProxy(req, res);
   }

@@ -44,6 +44,55 @@ export function getCachedAudioPath(trackId: string): string | null {
 }
 
 /**
+ * Resolves a direct Google Video stream URL using yt-dlp in ~2-3 seconds.
+ * Allows instant playback of full-length songs before disk caching finishes.
+ */
+export async function getDirectAudioStreamUrl(track: {
+  id: string;
+  title: string;
+  artist: string;
+  youtubeVideoId?: string | null;
+}): Promise<string | null> {
+  const cleanArtist = track.artist.replace(/[^\w\s-]/g, ' ').trim();
+  const cleanTitle = track.title.replace(/[^\w\s-]/g, ' ').trim();
+  const queries: string[] = [];
+
+  if (track.youtubeVideoId && /^[a-zA-Z0-9_-]{11}$/.test(track.youtubeVideoId)) {
+    queries.push(`https://www.youtube.com/watch?v=${track.youtubeVideoId}`);
+  }
+  queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} official audio`);
+  queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} audio`);
+
+  for (const q of queries) {
+    const url = await new Promise<string | null>((resolve) => {
+      const child = spawn(
+        'python3',
+        ['-m', 'yt_dlp', '-f', 'ba[ext=m4a]/ba/bestaudio', '-g', '--no-warnings', q],
+        { timeout: 8000 }
+      );
+
+      let stdout = '';
+      child.stdout.on('data', (d) => {
+        stdout += d.toString();
+      });
+      child.on('close', (code) => {
+        const first = stdout.trim().split('\n')[0];
+        if (code === 0 && first && first.startsWith('http')) {
+          resolve(first);
+        } else {
+          resolve(null);
+        }
+      });
+      child.on('error', () => resolve(null));
+    });
+
+    if (url) return url;
+  }
+
+  return null;
+}
+
+/**
  * Ensures a track has full-length audio cached on disk.
  * Downloads the full studio-quality audio (M4A / AAC) via yt-dlp.
  */
@@ -67,75 +116,74 @@ export async function ensureFullAudio(track: {
     const targetBase = path.join(CACHE_DIR, track.id);
     const targetM4a = `${targetBase}.m4a`;
 
-    // Query: prefer explicit YouTube video ID if known, otherwise search artist + title
-    let targetQuery: string;
+    const cleanArtist = track.artist.replace(/[^\w\s-]/g, ' ').trim();
+    const cleanTitle = track.title.replace(/[^\w\s-]/g, ' ').trim();
+
+    const queries: string[] = [];
     if (track.youtubeVideoId && /^[a-zA-Z0-9_-]{11}$/.test(track.youtubeVideoId)) {
-      targetQuery = `https://www.youtube.com/watch?v=${track.youtubeVideoId}`;
-    } else {
-      const cleanArtist = track.artist.replace(/[^\w\s-]/g, ' ').trim();
-      const cleanTitle = track.title.replace(/[^\w\s-]/g, ' ').trim();
-      targetQuery = `ytsearch1:${cleanArtist} ${cleanTitle} official audio`;
+      queries.push(`https://www.youtube.com/watch?v=${track.youtubeVideoId}`);
     }
+    queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} official audio`);
+    queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} audio`);
 
-    console.log(`[FullAudio] Fetching full audio for "${track.title}" - "${track.artist}" (Query: ${targetQuery})...`);
+    for (const targetQuery of queries) {
+      console.log(`[FullAudio] Fetching full audio for "${track.title}" - "${track.artist}" (Query: ${targetQuery})...`);
 
-    return new Promise<string | null>((resolve) => {
-      const args = [
-        '-m', 'yt_dlp',
-        '-f', 'ba[ext=m4a]/ba',
-        '--extract-audio',
-        '--audio-format', 'm4a',
-        '--no-playlist',
-        '--no-warnings',
-        '-o', `${targetBase}.%(ext)s`,
-        targetQuery,
-      ];
+      const success = await new Promise<boolean>((resolve) => {
+        const args = [
+          '-m', 'yt_dlp',
+          '-f', 'ba[ext=m4a]/ba/bestaudio',
+          '--extract-audio',
+          '--audio-format', 'm4a',
+          '--no-playlist',
+          '--no-part',
+          '--no-warnings',
+          '--force-overwrites',
+          '-o', `${targetBase}.%(ext)s`,
+          targetQuery,
+        ];
 
-      const child = spawn('python3', args, {
-        timeout: 25000,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
+        const child = spawn('python3', args, {
+          timeout: 30000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
 
-      let stderr = '';
-      child.stderr.on('data', (d) => {
-        stderr += d.toString();
-      });
-
-      child.on('close', (code) => {
-        inFlightDownloads.delete(track.id);
-
-        if (code === 0 && fs.existsSync(targetM4a)) {
-          try {
-            const stat = fs.statSync(targetM4a);
-            if (stat.size > 50000) {
-              console.log(`[FullAudio] Successfully cached full track "${track.title}" (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
-              
-              // Update database record to point to local file
-              try {
-                db.prepare(`
-                  UPDATE tracks
-                  SET local_path = ?, source_type = 'local', source_url = ?
-                  WHERE id = ?
-                `).run(targetM4a, `/api/stream/${track.id}`, track.id);
-              } catch (dbErr) {
-                console.warn('[FullAudio] DB update error:', dbErr);
+        child.on('close', (code) => {
+          if (code === 0 && fs.existsSync(targetM4a)) {
+            try {
+              const stat = fs.statSync(targetM4a);
+              if (stat.size > 50000) {
+                return resolve(true);
               }
+            } catch (e) {}
+          }
+          resolve(false);
+        });
 
-              return resolve(targetM4a);
-            }
-          } catch (e) {}
+        child.on('error', () => resolve(false));
+      });
+
+      if (success && fs.existsSync(targetM4a)) {
+        inFlightDownloads.delete(track.id);
+        const stat = fs.statSync(targetM4a);
+        console.log(`[FullAudio] Successfully cached full track "${track.title}" (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
+
+        try {
+          db.prepare(`
+            UPDATE tracks
+            SET local_path = ?, source_type = 'local', source_url = ?
+            WHERE id = ?
+          `).run(targetM4a, `/api/stream/${track.id}`, track.id);
+        } catch (dbErr) {
+          console.warn('[FullAudio] DB update error:', dbErr);
         }
 
-        console.warn(`[FullAudio] Download failed or file empty for "${track.title}" (code: ${code}):`, stderr.slice(0, 300));
-        resolve(null);
-      });
+        return targetM4a;
+      }
+    }
 
-      child.on('error', (err) => {
-        inFlightDownloads.delete(track.id);
-        console.warn(`[FullAudio] Process error for "${track.title}":`, err.message);
-        resolve(null);
-      });
-    });
+    inFlightDownloads.delete(track.id);
+    return null;
   })();
 
   inFlightDownloads.set(track.id, downloadPromise);
