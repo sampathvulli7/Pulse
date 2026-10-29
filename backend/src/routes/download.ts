@@ -54,7 +54,12 @@ export async function handleAudioDownload(req: Request, res: Response) {
       'Cache-Control': 'public, max-age=86400',
     });
 
-    return fs.createReadStream(filePath).pipe(res);
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', (err) => console.warn('[Download] ReadStream error:', err.message));
+    res.on('close', () => {
+      try { stream.destroy(); } catch (e) {}
+    });
+    return stream.pipe(res);
   }
 
   // 5. Remote source fallback redirect

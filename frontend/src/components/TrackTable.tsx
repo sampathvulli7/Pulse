@@ -100,39 +100,38 @@ export const TrackTable: React.FC<TrackTableProps> = ({
 
   const handleDownloadTrack = async (track: Track, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (downloadingMap[track.id]) return;
     setDownloadingMap((prev) => ({ ...prev, [track.id]: true }));
-    setToastMessage(`⬇️ Downloading "${track.title}"...`);
+    setToastMessage(`⬇️ Saving "${track.title}" for offline playback...`);
 
-    // 1. Direct device file download (phone/PC Downloads folder)
-    downloadTrackToDevice(track);
-
-    // 2. Cache in offline browser storage for zero-network playback
     const ok = await saveTrackOffline(track);
     setDownloadingMap((prev) => ({ ...prev, [track.id]: false }));
     if (ok) {
       setDownloadedMap((prev) => ({ ...prev, [track.id]: true }));
-      setToastMessage(`✓ "${track.title}" downloaded and saved for offline listening!`);
+      setToastMessage(`✓ "${track.title}" saved! Plays anywhere with laptop off.`);
     } else {
-      setToastMessage(`✓ Download started for "${track.title}"!`);
+      setToastMessage(`⚠️ Offline save failed for "${track.title}".`);
     }
     setTimeout(() => setToastMessage(null), 3500);
   };
 
   const handleDownloadAll = async () => {
     const toDownload = visibleTracks.slice(0, 15);
-    setToastMessage(`⬇️ Downloading ${toDownload.length} tracks to device...`);
+    setToastMessage(`⬇️ Saving ${toDownload.length} tracks to phone offline vault...`);
     for (const tr of toDownload) {
+      if (downloadedMap[tr.id]) continue;
       setDownloadingMap((prev) => ({ ...prev, [tr.id]: true }));
-      downloadTrackToDevice(tr);
-      await saveTrackOffline(tr);
+      const ok = await saveTrackOffline(tr);
       setDownloadingMap((prev) => ({ ...prev, [tr.id]: false }));
-      setDownloadedMap((prev) => ({ ...prev, [tr.id]: true }));
+      if (ok) {
+        setDownloadedMap((prev) => ({ ...prev, [tr.id]: true }));
+      }
     }
-    setToastMessage(`✓ ${toDownload.length} tracks downloaded and ready offline!`);
+    setToastMessage(`✓ Tracks saved offline! Ready to play anytime.`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const genres = ['All', 'Synthwave', 'Rock', 'Lo-Fi', 'Electronic', 'Metal', 'Classical', 'Pop', 'Jazz'];
+  const genres = ['All', 'Downloaded', 'Synthwave', 'Rock', 'Lo-Fi', 'Electronic', 'Metal', 'Classical', 'Pop', 'Jazz'];
 
   const totalDurationSec = useMemo(() => {
     return tracks.reduce((acc, t) => acc + (t.durationSeconds || 0), 0);
@@ -168,7 +167,11 @@ export const TrackTable: React.FC<TrackTableProps> = ({
         (t.album && t.album.toLowerCase().includes(q));
 
       const matchesGenre =
-        selectedGenre === 'All' || (t.genre && t.genre.toLowerCase() === selectedGenre.toLowerCase());
+        selectedGenre === 'All'
+          ? true
+          : selectedGenre === 'Downloaded'
+          ? Boolean(downloadedMap[t.id])
+          : t.genre && t.genre.toLowerCase() === selectedGenre.toLowerCase();
       return matchesSearch && matchesGenre;
     });
 

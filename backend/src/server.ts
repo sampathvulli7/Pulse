@@ -33,6 +33,19 @@ import { syncRouter } from './routes/sync';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Process-level resilience against socket ECONNRESET / client disconnects
+process.on('uncaughtException', (err: any) => {
+  if (err?.code === 'ECONNRESET' || err?.message?.includes('terminated') || err?.message?.includes('aborted')) {
+    console.warn('[Server] Handled non-fatal stream abort:', err.message);
+    return;
+  }
+  console.error('[Server] Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  console.warn('[Server] Handled unhandled rejection:', reason?.message || reason);
+});
+
 // Middlewares
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));

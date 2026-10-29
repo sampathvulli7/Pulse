@@ -182,6 +182,10 @@ function streamLocalFile(filePath: string, req: Request, res: Response) {
 
     const chunksize = end - start + 1;
     const file = fs.createReadStream(filePath, { start, end });
+    file.on('error', (err) => console.warn('[Stream] ReadStream error:', err.message));
+    res.on('close', () => {
+      try { file.destroy(); } catch (e) {}
+    });
 
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -202,7 +206,12 @@ function streamLocalFile(filePath: string, req: Request, res: Response) {
       'Cache-Control': 'public, max-age=3600',
     });
 
-    fs.createReadStream(filePath).pipe(res);
+    const file = fs.createReadStream(filePath);
+    file.on('error', (err) => console.warn('[Stream] ReadStream error:', err.message));
+    res.on('close', () => {
+      try { file.destroy(); } catch (e) {}
+    });
+    file.pipe(res);
   }
 }
 
@@ -257,9 +266,13 @@ export async function handleStreamProxy(req: Request, res: Response) {
 
     if (upstreamRes.body) {
       const nodeStream = Readable.fromWeb(upstreamRes.body as any);
+      nodeStream.on('error', (err: any) => console.warn('[Proxy] Stream error:', err?.message));
+      res.on('close', () => {
+        try { nodeStream.destroy(); } catch (e) {}
+      });
       nodeStream.pipe(res);
       req.on('close', () => {
-        nodeStream.destroy();
+        try { nodeStream.destroy(); } catch (e) {}
       });
     } else {
       res.end();
