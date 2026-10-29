@@ -339,20 +339,40 @@ export class PlaybackController {
       }
     };
 
-    audio.onerror = (e) => {
+    audio.onerror = async (e) => {
       console.warn('[PlaybackController] HTML5 Audio element error:', e);
-      if (this.currentTrack?.youtubeVideoId && this.activeEngine !== 'youtube') {
-        console.log('[PlaybackController] Falling back to YouTube bridge for:', this.currentTrack.title);
-        this.stopHTML5();
-        this.activeEngine = 'youtube';
-        this.ytBridge.init().then(() => {
-          this.ytBridge.showDock();
-          this.ytBridge.loadVideoById(this.currentTrack!.youtubeVideoId!, 0);
-          this.ytBridge.play();
-        }).catch(() => {
-          this.callbacks.onError(e);
-        });
-        return;
+      if (this.currentTrack && this.activeEngine !== 'youtube') {
+        let ytId = this.currentTrack.youtubeVideoId;
+        if (!ytId) {
+          try {
+            const resolveRes = await fetch('/api/spotify/resolve-track', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.currentTrack),
+            });
+            if (resolveRes.ok) {
+              const data = await resolveRes.json();
+              if (data && data.youtubeVideoId) {
+                ytId = data.youtubeVideoId;
+                this.currentTrack.youtubeVideoId = ytId;
+              }
+            }
+          } catch (err) {}
+        }
+
+        if (ytId) {
+          console.log('[PlaybackController] Falling back to YouTube bridge for:', this.currentTrack.title);
+          this.stopHTML5();
+          this.activeEngine = 'youtube';
+          this.ytBridge.init().then(() => {
+            this.ytBridge.showDock();
+            this.ytBridge.loadVideoById(ytId!, 0);
+            this.ytBridge.play();
+          }).catch(() => {
+            this.callbacks.onError(e);
+          });
+          return;
+        }
       }
       this.callbacks.onError(e);
     };

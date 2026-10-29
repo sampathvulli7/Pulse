@@ -84,6 +84,7 @@ playlistRouter.get('/:id', (req: Request, res: Response) => {
       ...t,
       durationSeconds: t.duration_seconds ?? 0,
       sourceType: t.source_type,
+      sourceUrl: t.source_url || `/api/stream/${t.id}`,
       coverArtUrl: t.cover_art_url,
       youtubeVideoId: t.youtube_video_id,
     }));
@@ -102,6 +103,7 @@ playlistRouter.get('/:id', (req: Request, res: Response) => {
     ...t,
     durationSeconds: t.duration_seconds ?? 0,
     sourceType: t.source_type,
+    sourceUrl: t.source_url || `/api/stream/${t.id}`,
     coverArtUrl: t.cover_art_url,
     youtubeVideoId: t.youtube_video_id,
   }));

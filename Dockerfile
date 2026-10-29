@@ -1,12 +1,13 @@
 # Production Dockerfile for Sampath's Studio
 FROM node:20-bookworm-slim
 
-# Install system dependencies (ffmpeg, python3, curl, ca-certificates) for audio streaming
+# Install system dependencies (ffmpeg, python3, curl, ca-certificates, chromium) for audio streaming & scraping
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \
     curl \
     ca-certificates \
+    chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # Install yt-dlp binary for full-track audio stream resolution
@@ -37,6 +38,7 @@ RUN mkdir -p /app/backend/cache/audio /app/backend/data
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 EXPOSE 3001
 

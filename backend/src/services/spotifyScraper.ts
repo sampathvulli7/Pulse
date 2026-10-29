@@ -140,7 +140,7 @@ export async function fetchFullSpotifyPlaylistGraphQL(playlistId: string): Promi
   let playlistCover = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80';
   let reportedTotalCount = 0;
 
-  for (let page = 0; page < 20; page++) {
+  for (let page = 0; page < 100; page++) {
     const payload = {
       variables: {
         uri,

@@ -9,7 +9,7 @@ trackRouter.get('/', (req: Request, res: Response) => {
   const genre = (req.query.genre as string || '').trim();
   const artist = (req.query.artist as string || '').trim();
   const source = (req.query.source as string || '').trim();
-  const limit = Math.min(Number(req.query.limit) || 200, 2000);
+  const limit = (req.query.limit === 'all' || req.query.limit === '0') ? 100000 : Math.min(Number(req.query.limit) || 2000, 100000);
   const offset = Number(req.query.offset) || 0;
 
   let query = 'SELECT * FROM tracks WHERE 1=1';

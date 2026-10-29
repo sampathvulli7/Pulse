@@ -164,6 +164,8 @@ function streamLocalFile(filePath: string, req: Request, res: Response) {
   else if (ext === '.flac') contentType = 'audio/flac';
   else if (ext === '.ogg') contentType = 'audio/ogg';
   else if (ext === '.m4a' || ext === '.mp4') contentType = 'audio/mp4';
+  else if (ext === '.webm') contentType = 'audio/webm';
+  else if (ext === '.opus') contentType = 'audio/ogg';
 
   if (range) {
     // Parse Range header e.g. "bytes=0-1024" or "bytes=1024-"

@@ -17,27 +17,38 @@ if (!fs.existsSync(CACHE_DIR)) {
 const inFlightDownloads = new Map<string, Promise<string | null>>();
 
 /**
+ * Auto-detects the best yt-dlp executable across Docker, Linux, macOS, and Windows.
+ */
+function getYtDlpRunner(): { cmd: string; prefixArgs: string[] } {
+  if (fs.existsSync('/usr/local/bin/yt-dlp')) {
+    return { cmd: '/usr/local/bin/yt-dlp', prefixArgs: [] };
+  }
+  try {
+    const which = require('child_process').execSync('which yt-dlp', { stdio: 'pipe' }).toString().trim();
+    if (which && fs.existsSync(which)) {
+      return { cmd: which, prefixArgs: [] };
+    }
+  } catch (e) {}
+
+  return { cmd: 'python3', prefixArgs: ['-m', 'yt_dlp'] };
+}
+
+/**
  * Returns the cached audio file path on disk if it exists and has content (>50KB).
+ * Checks all common lossless and modern streaming formats (.m4a, .mp3, .webm, .opus, .wav, .flac).
  */
 export function getCachedAudioPath(trackId: string): string | null {
-  const m4aPath = path.join(CACHE_DIR, `${trackId}.m4a`);
-  if (fs.existsSync(m4aPath)) {
-    try {
-      const stat = fs.statSync(m4aPath);
-      if (stat.size > 50000) {
-        return m4aPath;
-      }
-    } catch (e) {}
-  }
-
-  const mp3Path = path.join(CACHE_DIR, `${trackId}.mp3`);
-  if (fs.existsSync(mp3Path)) {
-    try {
-      const stat = fs.statSync(mp3Path);
-      if (stat.size > 50000) {
-        return mp3Path;
-      }
-    } catch (e) {}
+  const extensions = ['.m4a', '.mp3', '.webm', '.opus', '.wav', '.flac'];
+  for (const ext of extensions) {
+    const filePath = path.join(CACHE_DIR, `${trackId}${ext}`);
+    if (fs.existsSync(filePath)) {
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.size > 50000) {
+          return filePath;
+        }
+      } catch (e) {}
+    }
   }
 
   return null;
@@ -63,11 +74,13 @@ export async function getDirectAudioStreamUrl(track: {
   queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} official audio`);
   queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} audio`);
 
+  const runner = getYtDlpRunner();
+
   for (const q of queries) {
     const url = await new Promise<string | null>((resolve) => {
       const child = spawn(
-        'python3',
-        ['-m', 'yt_dlp', '-f', 'ba[ext=m4a]/ba/bestaudio', '-g', '--no-warnings', q],
+        runner.cmd,
+        [...runner.prefixArgs, '-f', 'ba[ext=m4a]/ba/bestaudio', '-g', '--no-warnings', q],
         { timeout: 8000 }
       );
 
@@ -126,12 +139,14 @@ export async function ensureFullAudio(track: {
     queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} official audio`);
     queries.push(`ytsearch1:${cleanArtist} ${cleanTitle} audio`);
 
+    const runner = getYtDlpRunner();
+
     for (const targetQuery of queries) {
       console.log(`[FullAudio] Fetching full audio for "${track.title}" - "${track.artist}" (Query: ${targetQuery})...`);
 
       const success = await new Promise<boolean>((resolve) => {
         const args = [
-          '-m', 'yt_dlp',
+          ...runner.prefixArgs,
           '-f', 'ba[ext=m4a]/ba/bestaudio',
           '--extract-audio',
           '--audio-format', 'm4a',
@@ -143,19 +158,15 @@ export async function ensureFullAudio(track: {
           targetQuery,
         ];
 
-        const child = spawn('python3', args, {
+        const child = spawn(runner.cmd, args, {
           timeout: 30000,
           stdio: ['ignore', 'pipe', 'pipe'],
         });
 
         child.on('close', (code) => {
-          if (code === 0 && fs.existsSync(targetM4a)) {
-            try {
-              const stat = fs.statSync(targetM4a);
-              if (stat.size > 50000) {
-                return resolve(true);
-              }
-            } catch (e) {}
+          const cached = getCachedAudioPath(track.id);
+          if (code === 0 || cached) {
+            return resolve(true);
           }
           resolve(false);
         });
@@ -163,9 +174,10 @@ export async function ensureFullAudio(track: {
         child.on('error', () => resolve(false));
       });
 
-      if (success && fs.existsSync(targetM4a)) {
+      const cachedPath = getCachedAudioPath(track.id);
+      if (cachedPath && fs.existsSync(cachedPath)) {
         inFlightDownloads.delete(track.id);
-        const stat = fs.statSync(targetM4a);
+        const stat = fs.statSync(cachedPath);
         console.log(`[FullAudio] Successfully cached full track "${track.title}" (${(stat.size / 1024 / 1024).toFixed(2)} MB)`);
 
         try {
@@ -173,12 +185,12 @@ export async function ensureFullAudio(track: {
             UPDATE tracks
             SET local_path = ?, source_type = 'local', source_url = ?
             WHERE id = ?
-          `).run(targetM4a, `/api/stream/${track.id}`, track.id);
+          `).run(cachedPath, `/api/stream/${track.id}`, track.id);
         } catch (dbErr) {
           console.warn('[FullAudio] DB update error:', dbErr);
         }
 
-        return targetM4a;
+        return cachedPath;
       }
     }
 

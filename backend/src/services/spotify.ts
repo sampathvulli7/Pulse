@@ -128,7 +128,7 @@ export async function searchGlobalTracks(query: string) {
         album: t.collectionName || 'Single',
         durationSeconds: Math.round((t.trackTimeMillis || 180000) / 1000),
         coverArtUrl: highResArtwork || t.artworkUrl100 || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80',
-        previewUrl: t.previewUrl,
+        previewUrl: undefined,
         sourceUrl: `/api/stream/trk-global-${t.trackId}?title=${encodeURIComponent(t.trackName)}&artist=${encodeURIComponent(t.artistName)}`,
         genre: t.primaryGenreName || 'Pop',
         isrc: t.isrc,
@@ -379,7 +379,7 @@ export async function importSpotifyPlaylist(
       let isFirstPage = true;
       let pageCount = 0;
 
-      while (nextUrl && trackItems.length < 5000) {
+      while (nextUrl && trackItems.length < 20000) {
         pageCount++;
         const response = await fetch(nextUrl, {
           headers: { Authorization: `Bearer ${effectiveToken}` },
