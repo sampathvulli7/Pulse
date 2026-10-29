@@ -26,6 +26,15 @@ import { StorageModal } from './components/StorageModal';
 import { usePlayerStore } from './store/playerStore';
 import { Track, Playlist } from './types/audio';
 import { globalAudioGraph } from './audio/AudioGraph';
+import {
+  fetchPlaylists,
+  fetchPlaylistDetails,
+  deletePlaylistById,
+  removeTrackFromPlaylistById,
+  toggleTrackFavorite,
+} from './services/dataProvider';
+import { getLocalTracks, saveLocalTracksBulk } from './services/localDatabase';
+import { startAutoSync } from './services/syncManager';
 
 export function App() {
   const [allTracks, setAllTracks] = useState<Track[]>([]);
@@ -77,6 +86,15 @@ export function App() {
     loadTracks();
     loadPlaylists();
 
+    // Start background auto-sync bus across devices
+    const stopSync = startAutoSync(20000);
+
+    const handleSyncCompleted = () => {
+      loadPlaylists();
+      loadTracks();
+    };
+    window.addEventListener('pulse-sync-completed', handleSyncCompleted);
+
     // Mobile Web Audio unlock on initial user touch/pointer interaction
     const unlockAudio = () => {
       globalAudioGraph.resume().catch(() => {});
@@ -84,6 +102,8 @@ export function App() {
     window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
     window.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
     return () => {
+      stopSync();
+      window.removeEventListener('pulse-sync-completed', handleSyncCompleted);
       window.removeEventListener('touchstart', unlockAudio);
       window.removeEventListener('pointerdown', unlockAudio);
     };
@@ -152,28 +172,44 @@ export function App() {
 
   const loadTracks = async () => {
     try {
-      const res = await fetch('/api/tracks?limit=2000');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch('/api/tracks?limit=2000', { signal: controller.signal });
+      clearTimeout(timeout);
+
       if (res.ok) {
         const data = await res.json();
-        setAllTracks(data.tracks || []);
+        const tracks = data.tracks || [];
+        setAllTracks(tracks);
+        saveLocalTracksBulk(tracks).catch(() => {});
+
         if (selectedPlaylistId === null) {
-          setDisplayedTracks(data.tracks || []);
+          setDisplayedTracks(tracks);
         } else if (selectedPlaylistId === 'liked') {
-          setDisplayedTracks((data.tracks || []).filter((t: Track) => t.isFavorite));
+          setDisplayedTracks(tracks.filter((t: Track) => t.isFavorite));
         }
+        return;
       }
     } catch (e) {
-      console.warn('Could not fetch tracks:', e);
+      console.warn('[App] Server tracks fetch notice, loading local phone tracks:', e);
     }
+
+    // Phone Standalone / Offline Fallback
+    try {
+      const local = await getLocalTracks();
+      setAllTracks(local);
+      if (selectedPlaylistId === null) {
+        setDisplayedTracks(local);
+      } else if (selectedPlaylistId === 'liked') {
+        setDisplayedTracks(local.filter((t: Track) => t.isFavorite));
+      }
+    } catch (localErr) {}
   };
 
   const loadPlaylists = async () => {
     try {
-      const res = await fetch('/api/playlists');
-      if (res.ok) {
-        const data = await res.json();
-        setPlaylists(data || []);
-      }
+      const data = await fetchPlaylists();
+      setPlaylists(data || []);
     } catch (e) {
       console.warn('Could not fetch playlists:', e);
     }
@@ -212,9 +248,8 @@ export function App() {
     }
 
     try {
-      const res = await fetch(`/api/playlists/${id}`);
-      if (res.ok) {
-        const pl = await res.json();
+      const pl = await fetchPlaylistDetails(id);
+      if (pl) {
         setViewTitle(pl.name);
         setViewSubtitle(
           pl.description ||
@@ -266,13 +301,11 @@ export function App() {
 
   const handleDeletePlaylist = async (playlistId: string) => {
     try {
-      const res = await fetch(`/api/playlists/${playlistId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setBannerMessage('Playlist deleted.');
-        await loadPlaylists();
-        if (selectedPlaylistId === playlistId) {
-          handleSelectPlaylist(null);
-        }
+      await deletePlaylistById(playlistId);
+      setBannerMessage('Playlist deleted.');
+      await loadPlaylists();
+      if (selectedPlaylistId === playlistId) {
+        handleSelectPlaylist(null);
       }
     } catch (e) {
       console.warn('Could not delete playlist:', e);
@@ -284,13 +317,9 @@ export function App() {
   const handleRemoveTrackFromPlaylist = async (trackId: string) => {
     if (!selectedPlaylistId || selectedPlaylistId === 'liked') return;
     try {
-      const res = await fetch(`/api/playlists/${selectedPlaylistId}/tracks/${trackId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        setDisplayedTracks((prev) => prev.filter((t) => t.id !== trackId));
-        loadPlaylists();
-      }
+      await removeTrackFromPlaylistById(selectedPlaylistId, trackId);
+      setDisplayedTracks((prev) => prev.filter((t) => t.id !== trackId));
+      loadPlaylists();
     } catch (e) {
       console.warn('Could not remove track:', e);
     }
@@ -324,7 +353,8 @@ export function App() {
     });
 
     try {
-      await fetch(`/api/tracks/${trackId}/toggle-like`, { method: 'POST' });
+      const track = allTracks.find((t) => t.id === trackId);
+      await toggleTrackFavorite(trackId, track);
     } catch (e) {
       console.warn('Like toggle failed:', e);
     }

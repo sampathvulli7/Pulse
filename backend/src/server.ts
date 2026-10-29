@@ -28,6 +28,7 @@ import { recommendationRouter } from './routes/recommendations';
 import { mixRouter } from './routes/mixes';
 import { userStatsRouter } from './routes/userStats';
 import { cacheRouter } from './routes/cache';
+import { syncRouter } from './routes/sync';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,6 +50,7 @@ app.use('/api/mixes', mixRouter);
 app.use('/api/cache', cacheRouter);
 app.use('/api', recommendationRouter);
 app.use('/api', userStatsRouter);
+app.use('/api/sync', syncRouter);
 
 // Audio & Image Streaming (HTTP 206 Partial Content + Full CORS + Image Fallback)
 app.get('/api/stream/proxy', handleStreamProxy);

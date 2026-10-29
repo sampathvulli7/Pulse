@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
 import { Playlist, Track } from '../types/audio';
+import { searchClientGlobal, searchClientAudius } from '../services/clientCatalog';
 
 interface SearchViewProps {
   onBackToLibrary: () => void;
@@ -182,19 +183,38 @@ export const SearchView: React.FC<SearchViewProps> = ({
   const fetchResults = async (q: string, filter: SourceFilter) => {
     setLoading(true);
     try {
-      const [searchRes, suggRes] = await Promise.allSettled([
-        fetch(`/api/spotify/search?q=${encodeURIComponent(q)}&source=${filter}`),
-        fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}`),
-      ]);
+      let searchData: any[] = [];
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const searchRes = await fetch(`/api/spotify/search?q=${encodeURIComponent(q)}&source=${filter}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (searchRes.ok) {
+          searchData = await searchRes.json();
+        }
+      } catch (err) {}
 
-      if (searchRes.status === 'fulfilled' && searchRes.value.ok) {
-        const data = await searchRes.value.json();
-        setResults(data || []);
+      // Standalone phone fallback: If server is offline, query global open catalog directly
+      if (!searchData || searchData.length === 0) {
+        if (filter === 'audius') {
+          searchData = await searchClientAudius(q);
+        } else {
+          searchData = await searchClientGlobal(q);
+        }
       }
-      if (suggRes.status === 'fulfilled' && suggRes.value.ok) {
-        const suggData = await suggRes.value.json();
-        setSuggestions(suggData);
-      }
+
+      setResults(searchData || []);
+
+      // Fetch suggestions if available
+      try {
+        const suggRes = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}`);
+        if (suggRes.ok) {
+          const suggData = await suggRes.json();
+          setSuggestions(suggData);
+        }
+      } catch (e) {}
     } catch (e) {
       console.warn('Search failed:', e);
     } finally {
@@ -210,17 +230,24 @@ export const SearchView: React.FC<SearchViewProps> = ({
 
     setResolvingId(rawTrack.id);
     try {
-      const res = await fetch('/api/spotify/resolve-track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rawTrack),
-      });
+      let resolved = rawTrack;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const res = await fetch('/api/spotify/resolve-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rawTrack),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          resolved = await res.json();
+        }
+      } catch (e) {}
 
-      if (res.ok) {
-        const resolved = await res.json();
-        onTrackImported();
-        await playTrack(resolved);
-      }
+      onTrackImported();
+      await playTrack(resolved);
     } catch (e) {
       console.warn('Could not resolve track:', e);
     } finally {
@@ -232,19 +259,26 @@ export const SearchView: React.FC<SearchViewProps> = ({
     e?.stopPropagation();
     setResolvingId(rawTrack.id);
     try {
-      const res = await fetch('/api/spotify/resolve-track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(rawTrack),
-      });
+      let resolved = rawTrack;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        const res = await fetch('/api/spotify/resolve-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rawTrack),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          resolved = await res.json();
+        }
+      } catch (e) {}
 
-      if (res.ok) {
-        const resolved = await res.json();
-        onTrackImported();
-        addToPriorityQueue(resolved, 'next');
-        setQueuedId(rawTrack.id);
-        setTimeout(() => setQueuedId(null), 2000);
-      }
+      onTrackImported();
+      addToPriorityQueue(resolved, 'next');
+      setQueuedId(rawTrack.id);
+      setTimeout(() => setQueuedId(null), 2000);
     } catch (e) {
       console.warn('Could not queue track:', e);
     } finally {

@@ -17,8 +17,11 @@ import {
   Sparkles,
   Heart,
   Radio,
+  Download,
+  CheckCircle2,
 } from 'lucide-react';
 import { usePlayerStore } from '../store/playerStore';
+import { isTrackOffline, saveTrackOffline } from '../utils/offlineStorage';
 
 interface MobileNowPlayingProps {
   isOpen: boolean;
@@ -69,6 +72,26 @@ export const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
 
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekTime, setSeekTime] = useState(0);
+  const [isDownloaded, setIsDownloaded] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Check offline storage status when track changes
+  React.useEffect(() => {
+    if (currentTrack?.id) {
+      isTrackOffline(currentTrack.id).then(setIsDownloaded);
+    }
+  }, [currentTrack?.id]);
+
+  const handleDownloadToPhone = async () => {
+    if (!currentTrack || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const ok = await saveTrackOffline(currentTrack);
+      if (ok) setIsDownloaded(true);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Touch Swipe-Down to Dismiss Sheet State
   const [dragOffset, setDragOffset] = useState(0);
@@ -234,9 +257,25 @@ export const MobileNowPlaying: React.FC<MobileNowPlayingProps> = ({
             className="w-full h-full object-cover select-none"
           />
 
+          {/* Download to Phone / Offline Vault Button */}
+          <button
+            onClick={handleDownloadToPhone}
+            disabled={isDownloading}
+            className="absolute top-3 left-3 p-2.5 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-md text-[#1d1d1f] dark:text-white shadow-md active:scale-90 transition flex items-center justify-center z-10"
+            title={isDownloaded ? 'Downloaded to phone storage' : 'Download song to phone storage'}
+          >
+            {isDownloaded ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-500/20" />
+            ) : isDownloading ? (
+              <div className="w-4 h-4 border-2 border-[#fa243c] border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 text-current" />
+            )}
+          </button>
+
           {/* Spatial Audio Badge Overlay */}
           {spatialAudioMode !== 'off' && (
-            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full flex items-center gap-1 text-[9px] text-white font-mono font-bold border border-white/20">
+            <div className="absolute top-3 left-14 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full flex items-center gap-1 text-[9px] text-white font-mono font-bold border border-white/20">
               <Sparkles className="w-2.5 h-2.5 text-purple-400 fill-current" />
               <span>SPATIAL 3D</span>
             </div>

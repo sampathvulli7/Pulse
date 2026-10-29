@@ -205,6 +205,58 @@ async function runAllTests() {
     assert(bulkImport.playlistId.startsWith('pl-bulk-'));
     console.log(`✓ Passed: Bulk importer successfully processed all ${bulkImport.tracksImported} tracks together into "${bulkImport.name}".`);
 
+    // 14. Test Two-Way Phone Cross-Device Sync API (/api/sync)
+    console.log('\n[Test 14] Testing Two-Way Phone Cross-Device Sync API (/api/sync)...');
+    const syncRes = await fetch(`${baseUrl}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: 'phone-test-client',
+        lastSyncTimestamp: 0,
+        syncQueue: [
+          {
+            id: 'sync-op-01',
+            type: 'ADD_PLAYLIST',
+            payload: {
+              id: 'pl-phone-test-01',
+              name: 'Phone Late Night Vibes',
+              description: 'Created on mobile device while away from laptop',
+              isSmart: false,
+              tracks: [
+                {
+                  id: 'trk-phone-01',
+                  title: 'Mobile Pulse Track 1',
+                  artist: 'Phone Artist',
+                  durationSeconds: 210,
+                  sourceType: 'local',
+                  sourceUrl: '/api/stream/trk-phone-01',
+                },
+              ],
+            },
+            timestamp: Date.now(),
+          },
+          {
+            id: 'sync-op-02',
+            type: 'TOGGLE_LIKE',
+            payload: {
+              trackId: 'trk-phone-01',
+              isFavorite: true,
+            },
+            timestamp: Date.now(),
+          },
+        ],
+      }),
+    });
+    assert.strictEqual(syncRes.status, 200);
+    const syncData = (await syncRes.json()) as any;
+    assert.strictEqual(syncData.status, 'ok');
+    assert(Array.isArray(syncData.processedSyncIds));
+    assert(syncData.processedSyncIds.includes('sync-op-01'));
+    assert(syncData.processedSyncIds.includes('sync-op-02'));
+    assert(Array.isArray(syncData.serverPlaylists));
+    assert(syncData.serverPlaylists.some((p: any) => p.id === 'pl-phone-test-01'));
+    console.log('✓ Passed: Two-way phone sync successfully committed mobile playlist and favorite state to server.');
+
     console.log('\n=========================================');
     console.log('ALL BACKEND INTEGRATION TESTS PASSED (0 failures)');
     console.log('=========================================\n');

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Plus, Trash2 } from 'lucide-react';
 import { SmartRuleDTO } from '../types/audio';
+import { saveLocalPlaylist, enqueueSyncOperation } from '../services/localDatabase';
 
 interface SmartPlaylistModalProps {
   isOpen: boolean;
@@ -38,27 +39,45 @@ export const SmartPlaylistModal: React.FC<SmartPlaylistModalProps> = ({ isOpen, 
     if (!name.trim()) return;
 
     setLoading(true);
+    const newPl = {
+      id: `pl-smart-${Date.now()}`,
+      name: name.trim(),
+      description: description.trim() || 'Dynamic smart rule-based playlist',
+      isSmart: true,
+      coverUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80',
+      isFavorite: false,
+      trackCount: 0,
+      tracks: [],
+    };
+
     try {
       const res = await fetch('/api/playlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || 'Dynamic smart rule-based playlist',
+          ...newPl,
           is_smart: 1,
           rules,
         }),
       });
 
       if (res.ok) {
+        await saveLocalPlaylist(newPl);
         onCreated();
         onClose();
+        return;
       }
     } catch (err) {
-      console.warn('Could not create smart playlist:', err);
+      console.warn('Backend offline, saving smart playlist locally:', err);
     } finally {
       setLoading(false);
     }
+
+    // Offline / Standalone phone save
+    await saveLocalPlaylist(newPl);
+    await enqueueSyncOperation('ADD_PLAYLIST', newPl);
+    onCreated();
+    onClose();
   };
 
   return (

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Search, Plus, Check, Music, Sparkles } from 'lucide-react';
 import { Track } from '../types/audio';
+import { addTrackToPlaylistById } from '../services/dataProvider';
 
 interface AddSongsModalProps {
   isOpen: boolean;
@@ -42,16 +43,9 @@ export const AddSongsModal: React.FC<AddSongsModalProps> = ({
 
     setLoadingId(track.id);
     try {
-      const res = await fetch(`/api/playlists/${playlistId}/tracks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trackId: track.id }),
-      });
-
-      if (res.ok) {
-        setAddedIds((prev) => new Set(prev).add(track.id));
-        onTrackAdded(track);
-      }
+      await addTrackToPlaylistById(playlistId, track);
+      setAddedIds((prev) => new Set(prev).add(track.id));
+      onTrackAdded(track);
     } catch (err) {
       console.warn('Failed to add track to playlist:', err);
     } finally {

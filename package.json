@@ -7,7 +7,8 @@
     "backend": "cd backend && node dist/server.js",
     "frontend": "cd frontend && npm run dev -- --host 0.0.0.0",
     "build": "cd backend && npm run build && cd ../frontend && npm run build",
-    "test": "cd backend && npm test && cd ../frontend && npm test -- --run"
+    "test": "cd backend && npm test && cd ../frontend && npm test -- --run",
+    "remote": "node scripts/remote.js"
   },
   "keywords": [
     "music",
@@ -18,5 +19,9 @@
     "web-audio-api"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "cloudflared": "^0.7.3",
+    "qrcode-terminal": "^0.12.0"
+  }
 }
