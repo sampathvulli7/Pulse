@@ -173,22 +173,24 @@ export function App() {
   const loadTracks = async () => {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch('/api/tracks?limit=2000', { signal: controller.signal });
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch('/api/tracks?limit=all', { signal: controller.signal });
       clearTimeout(timeout);
 
       if (res.ok) {
         const data = await res.json();
         const tracks = data.tracks || [];
-        setAllTracks(tracks);
-        saveLocalTracksBulk(tracks).catch(() => {});
+        if (tracks.length > 0) {
+          setAllTracks(tracks);
+          saveLocalTracksBulk(tracks).catch(() => {});
 
-        if (selectedPlaylistId === null) {
-          setDisplayedTracks(tracks);
-        } else if (selectedPlaylistId === 'liked') {
-          setDisplayedTracks(tracks.filter((t: Track) => t.isFavorite));
+          if (selectedPlaylistId === null) {
+            setDisplayedTracks(tracks);
+          } else if (selectedPlaylistId === 'liked') {
+            setDisplayedTracks(tracks.filter((t: Track) => t.isFavorite));
+          }
+          return;
         }
-        return;
       }
     } catch (e) {
       console.warn('[App] Server tracks fetch notice, loading local phone tracks:', e);

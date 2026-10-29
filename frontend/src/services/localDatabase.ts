@@ -1,4 +1,5 @@
 import { Track, Playlist } from '../types/audio';
+import { STARTER_TRACKS } from './starterTracks';
 
 const DB_NAME = 'pulse_local_store';
 const DB_VERSION = 2;
@@ -81,8 +82,8 @@ export async function getLocalPlaylists(): Promise<Playlist[]> {
             isSmart: false,
             coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80',
             isFavorite: false,
-            trackCount: 0,
-            tracks: [],
+            trackCount: STARTER_TRACKS.slice(0, 15).length,
+            tracks: STARTER_TRACKS.slice(0, 15),
           },
         ];
         defaultPlaylists.forEach((pl) => saveLocalPlaylist(pl));
@@ -168,8 +169,15 @@ export async function getLocalTracks(): Promise<Track[]> {
     const tx = db.transaction('tracks', 'readonly');
     const store = tx.objectStore('tracks');
     const req = store.getAll();
-    req.onsuccess = () => resolve((req.result || []) as Track[]);
-    req.onerror = () => resolve([]);
+    req.onsuccess = () => {
+      const items = (req.result || []) as Track[];
+      if (items.length === 0 && STARTER_TRACKS.length > 0) {
+        saveLocalTracksBulk(STARTER_TRACKS).catch(() => {});
+        return resolve(STARTER_TRACKS);
+      }
+      resolve(items);
+    };
+    req.onerror = () => resolve(STARTER_TRACKS);
   });
 }
 
@@ -235,3 +243,4 @@ export async function clearSyncQueue(ids: string[]): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
 }
+

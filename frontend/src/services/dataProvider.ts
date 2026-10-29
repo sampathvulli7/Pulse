@@ -24,7 +24,7 @@ export async function isBackendOnline(): Promise<boolean> {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1800);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const res = await fetch('/api/health', { signal: controller.signal });
     clearTimeout(timeout);
 
@@ -202,3 +202,4 @@ export async function toggleTrackFavorite(trackId: string, track?: Track): Promi
 export async function fetchFavoritesSet(): Promise<Set<string>> {
   return getLocalFavorites();
 }
+

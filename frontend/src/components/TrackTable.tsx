@@ -352,7 +352,10 @@ export const TrackTable: React.FC<TrackTableProps> = ({
           <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-medium text-[#6e6e73] dark:text-[#a1a1a6]">
             <span className="font-bold text-[#1d1d1f] dark:text-white">Sampath's Studio</span>
             <span>•</span>
-            <span>{filteredAndSorted.length} songs</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              {filteredAndSorted.length.toLocaleString()} songs loaded
+            </span>
             {totalDurationSec > 0 && (
               <>
                 <span>•</span>
