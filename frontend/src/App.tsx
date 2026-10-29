@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Activity,
   Menu,
@@ -41,6 +41,11 @@ export function App() {
   const [displayedTracks, setDisplayedTracks] = useState<Track[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const selectedPlaylistIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedPlaylistIdRef.current = selectedPlaylistId;
+  }, [selectedPlaylistId]);
+
   const [viewTitle, setViewTitle] = useState('All Tracks');
   const [viewSubtitle, setViewSubtitle] = useState("Sampath's Personal Music Workstation");
 
@@ -91,7 +96,18 @@ export function App() {
 
     const handleSyncCompleted = () => {
       loadPlaylists();
-      loadTracks();
+      const currentPlId = selectedPlaylistIdRef.current;
+      if (currentPlId === null || currentPlId === 'liked') {
+        loadTracks();
+      } else {
+        fetchPlaylistDetails(currentPlId)
+          .then((pl) => {
+            if (pl && selectedPlaylistIdRef.current === currentPlId) {
+              setDisplayedTracks(pl.tracks || []);
+            }
+          })
+          .catch(() => {});
+      }
     };
     window.addEventListener('pulse-sync-completed', handleSyncCompleted);
 
@@ -184,9 +200,10 @@ export function App() {
           setAllTracks(tracks);
           saveLocalTracksBulk(tracks).catch(() => {});
 
-          if (selectedPlaylistId === null) {
+          const currentPlId = selectedPlaylistIdRef.current;
+          if (currentPlId === null) {
             setDisplayedTracks(tracks);
-          } else if (selectedPlaylistId === 'liked') {
+          } else if (currentPlId === 'liked') {
             setDisplayedTracks(tracks.filter((t: Track) => t.isFavorite));
           }
           return;
@@ -200,9 +217,10 @@ export function App() {
     try {
       const local = await getLocalTracks();
       setAllTracks(local);
-      if (selectedPlaylistId === null) {
+      const currentPlId = selectedPlaylistIdRef.current;
+      if (currentPlId === null) {
         setDisplayedTracks(local);
-      } else if (selectedPlaylistId === 'liked') {
+      } else if (currentPlId === 'liked') {
         setDisplayedTracks(local.filter((t: Track) => t.isFavorite));
       }
     } catch (localErr) {}
@@ -220,6 +238,9 @@ export function App() {
   const handleSelectPlaylist = async (id: string | null) => {
     navigateView('library');
     setSelectedPlaylistId(id);
+    selectedPlaylistIdRef.current = id;
+    setIsMobileSidebarOpen(false);
+
     if (id === null) {
       setViewTitle('All Tracks');
       setViewSubtitle('Complete workstation audio library with unlimited playback');
@@ -399,10 +420,11 @@ export function App() {
       <header className="md:hidden flex items-center justify-between px-4 py-2.5 bg-white/80 dark:bg-[#121214]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 z-30 shrink-0 pt-safe">
         <button
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="p-2 -ml-1 rounded-xl text-[#1d1d1f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition"
-          aria-label="Open library menu"
+          className="p-1.5 -ml-1 rounded-xl text-[#1d1d1f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10"
+          aria-label="Open Playlists"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4 text-[#fa243c]" />
+          <span className="text-[11px] font-bold text-[#1d1d1f] dark:text-white">Playlists</span>
         </button>
 
         <div

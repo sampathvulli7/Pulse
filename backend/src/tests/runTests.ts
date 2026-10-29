@@ -205,6 +205,11 @@ async function runAllTests() {
     assert(bulkImport.playlistId.startsWith('pl-bulk-'));
     console.log(`✓ Passed: Bulk importer successfully processed all ${bulkImport.tracksImported} tracks together into "${bulkImport.name}".`);
 
+    // Clean up test bulk tracks & playlist so they don't pollute production database
+    db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run(bulkImport.playlistId);
+    db.prepare('DELETE FROM playlists WHERE id = ?').run(bulkImport.playlistId);
+    db.prepare('DELETE FROM tracks WHERE album = ?').run('Mega 150+ Playlist Test');
+
     // 14. Test Two-Way Phone Cross-Device Sync API (/api/sync)
     console.log('\n[Test 14] Testing Two-Way Phone Cross-Device Sync API (/api/sync)...');
     const syncRes = await fetch(`${baseUrl}/api/sync`, {
@@ -256,6 +261,11 @@ async function runAllTests() {
     assert(Array.isArray(syncData.serverPlaylists));
     assert(syncData.serverPlaylists.some((p: any) => p.id === 'pl-phone-test-01'));
     console.log('✓ Passed: Two-way phone sync successfully committed mobile playlist and favorite state to server.');
+
+    // Clean up test mobile playlist
+    db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ?').run('pl-phone-test-01');
+    db.prepare('DELETE FROM playlists WHERE id = ?').run('pl-phone-test-01');
+    db.prepare('DELETE FROM tracks WHERE id = ?').run('trk-phone-01');
 
     console.log('\n=========================================');
     console.log('ALL BACKEND INTEGRATION TESTS PASSED (0 failures)');

@@ -22,6 +22,16 @@ import { usePlayerStore } from '../store/playerStore';
 import { EQ_FREQUENCIES, globalAudioGraph } from '../audio/AudioGraph';
 import { VisualizerCanvas } from './VisualizerCanvas';
 import { EQPreset, RightPanelTab, SpotifyAudioFeatures } from '../types/audio';
+import { fetchClientLyrics } from '../services/clientCatalog';
+
+const DEFAULT_PRESETS: EQPreset[] = [
+  { id: 'flat', name: 'Flat', isDefault: true, preampGain: 0, bandGains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  { id: 'bass-boost', name: 'Bass Boost', isDefault: true, preampGain: 0, bandGains: [5, 4.5, 3.5, 2, 0, 0, 0, 0, 0, 0] },
+  { id: 'vocal-enhancer', name: 'Vocal Enhancer', isDefault: true, preampGain: 0, bandGains: [-2, -1, 0, 2, 4, 3.5, 2, 0, -1, -2] },
+  { id: 'electronic', name: 'Electronic', isDefault: true, preampGain: 0, bandGains: [4.5, 3.5, 1, 0, -1, 2, 1, 2.5, 4, 4.5] },
+  { id: 'rock', name: 'Rock', isDefault: true, preampGain: 0, bandGains: [4, 3, -1, -1.5, 0, 1.5, 3, 3.5, 4, 4] },
+  { id: 'acoustic', name: 'Acoustic', isDefault: true, preampGain: 0, bandGains: [3, 2, 1, 1.5, 2, 2, 2.5, 3, 2.5, 2] },
+];
 
 interface ParsedLine {
   timeMs: number;
@@ -130,11 +140,12 @@ export const RightPanel: React.FC = () => {
   // Load EQ Presets on mount
   useEffect(() => {
     fetch('/api/eq-presets')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (Array.isArray(data)) setPresets(data);
+        if (Array.isArray(data) && data.length > 0) setPresets(data);
+        else setPresets(DEFAULT_PRESETS);
       })
-      .catch((err) => console.warn('Could not load EQ presets:', err));
+      .catch(() => setPresets(DEFAULT_PRESETS));
   }, []);
 
   // Fetch lyrics & Spotify audio features whenever currentTrack changes
@@ -164,25 +175,46 @@ export const RightPanel: React.FC = () => {
       duration: (currentTrack.durationSeconds || 0).toString(),
     });
 
-    fetch(`/api/lyrics?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setIsInstrumental(!!data.instrumental);
-        setPlainLyrics(data.plainLyrics || '');
-
-        if (data.parsedLines && Array.isArray(data.parsedLines) && data.parsedLines.length > 0) {
-          setLyricLines(data.parsedLines);
-        } else if (data.syncedLyrics) {
-          setLyricLines(parseLrc(data.syncedLyrics));
-        } else {
-          setLyricLines([]);
+    const loadLyrics = async () => {
+      try {
+        const res = await fetch(`/api/lyrics?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsInstrumental(!!data.instrumental);
+          setPlainLyrics(data.plainLyrics || '');
+          if (data.parsedLines && Array.isArray(data.parsedLines) && data.parsedLines.length > 0) {
+            setLyricLines(data.parsedLines);
+          } else if (data.syncedLyrics) {
+            setLyricLines(parseLrc(data.syncedLyrics));
+          } else {
+            setLyricLines([]);
+          }
+          setLyricsLoading(false);
+          return;
         }
-      })
-      .catch((err) => {
-        console.warn('Could not load lyrics:', err);
-        setLyricLines([]);
-      })
-      .finally(() => setLyricsLoading(false));
+      } catch (e) {}
+
+      try {
+        const direct = await fetchClientLyrics(currentTrack.title, currentTrack.artist, currentTrack.durationSeconds);
+        if (direct) {
+          setIsInstrumental(!!direct.instrumental);
+          setPlainLyrics(direct.plainLyrics || '');
+          if (direct.syncedLyrics) {
+            setLyricLines(parseLrc(direct.syncedLyrics));
+          } else {
+            setLyricLines([]);
+          }
+          setLyricsLoading(false);
+          return;
+        }
+      } catch (e) {}
+
+      setPlainLyrics('');
+      setLyricLines([]);
+      setLyricsLoading(false);
+    };
+
+    loadLyrics();
   }, [currentTrack?.id]);
 
   // High-precision zero-latency hardware clock lyrics sync
@@ -284,15 +316,19 @@ export const RightPanel: React.FC = () => {
     }
   };
 
+  if (!rightPanelTab) {
+    return null;
+  }
+
   return (
     <aside
-      className="spotify-right-sidebar spotify-panel hidden md:flex flex-col h-full bg-white/40 dark:bg-[#0c1220]/60 backdrop-blur-3xl select-none text-[#14171f] dark:text-white border-l border-black/5 dark:border-white/5"
-      style={{ width: `${rightRailWidth}px` }}
+      className="spotify-right-sidebar spotify-panel flex flex-col fixed inset-0 z-[150] md:relative md:inset-auto md:z-auto h-full w-full md:w-[340px] bg-white/98 dark:bg-[#121214]/98 md:bg-white/40 md:dark:bg-[#0c1220]/60 backdrop-blur-3xl select-none text-[#14171f] dark:text-white border-l border-black/5 dark:border-white/5 pt-safe pb-safe"
+      style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${rightRailWidth}px` : undefined }}
       aria-label="Context panel"
     >
       {/* Panel Tab Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-black/5 dark:border-white/5">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-black/5 dark:border-white/5 shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setRightPanelTab('now-playing')}
             className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
@@ -303,7 +339,7 @@ export const RightPanel: React.FC = () => {
             title="Now Playing"
           >
             <Disc3 className="w-4 h-4" />
-            <span className="hidden sm:inline">Info</span>
+            <span className="inline">Info</span>
           </button>
 
           <button
@@ -316,42 +352,42 @@ export const RightPanel: React.FC = () => {
             title="Queue"
           >
             <ListMusic className="w-4 h-4" />
-            <span className="hidden sm:inline">Queue</span>
+            <span className="inline">Queue</span>
           </button>
 
           <button
             onClick={() => setRightPanelTab('eq')}
             className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
               rightPanelTab === 'eq'
-                ? 'bg-black/5 dark:bg-white/10 text-[#fa243c] font-bold'
+                ? 'bg-[#fa243c]/10 text-[#fa243c] font-bold border border-[#fa243c]/20'
                 : 'text-[#86868b] dark:text-[#b3b3b3] hover:text-[#1d1d1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
             }`}
             title="10-Band EQ"
           >
-            <Sliders className="w-4 h-4" />
-            <span className="hidden sm:inline">EQ</span>
+            <Sliders className="w-4 h-4 text-[#fa243c]" />
+            <span className="inline">10-Band EQ</span>
           </button>
 
           <button
             onClick={() => setRightPanelTab('lyrics')}
             className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
               rightPanelTab === 'lyrics'
-                ? 'bg-black/5 dark:bg-white/10 text-[#fa243c] font-bold'
+                ? 'bg-[#fa243c]/10 text-[#fa243c] font-bold border border-[#fa243c]/20'
                 : 'text-[#86868b] dark:text-[#b3b3b3] hover:text-[#1d1d1f] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
             }`}
             title="Lyrics"
           >
-            <Mic2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Lyrics</span>
+            <Mic2 className="w-4 h-4 text-[#fa243c]" />
+            <span className="inline">Lyrics</span>
           </button>
         </div>
 
         <button
           onClick={() => toggleRightPanelTab(rightPanelTab)}
           aria-label="Close panel"
-          className="p-1.5 text-[#86868b] dark:text-[#b3b3b3] hover:text-[#1d1d1f] dark:hover:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition"
+          className="p-2 text-[#86868b] dark:text-[#b3b3b3] hover:text-[#1d1d1f] dark:hover:text-white rounded-full hover:bg-black/10 dark:hover:bg-white/10 active:scale-90 transition shrink-0 ml-2"
         >
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" />
         </button>
       </div>
 
